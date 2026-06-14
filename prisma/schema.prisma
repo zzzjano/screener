@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MarketType {
+  SPOT
+  LINEAR
+  INVERSE
+}
+
+enum ScreenerStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum IndicatorKind {
+  RSI
+  SMA
+  EMA
+  MACD
+  BOLLINGER_BANDS
+  ATR
+  ADX
+  STOCH_RSI
+  VWAP
+  OBV
+  MFI
+  ROC
+  CCI
+  CUSTOM
+}
+
+enum PriceSource {
+  OPEN
+  HIGH
+  LOW
+  CLOSE
+  HL2
+  HLC3
+  OHLC4
+}
+
+enum TriggerPolicy {
+  ON_ENTER
+  EVERY_CLOSED_CANDLE
+  ON_STATE_CHANGE
+}
+
+enum AlertDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED_COOLDOWN
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  displayName         String?
+  passwordHash        String?
+  locale              String               @default("pl")
+  timezone            String               @default("Europe/Warsaw")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  screeners           Screener[]
+  indicatorPresets    IndicatorPreset[]
+  telegramConnections TelegramConnection[]
+}
+
+model TelegramConnection {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatIdEncrypted String
+  username        String?
+  isEnabled       Boolean   @default(true)
+  verifiedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId, isEnabled])
+}
+
+model Market {
+  id         String     @id @default(cuid())
+  exchange   String     @default("bybit")
+  type       MarketType
+  symbol     String
+  baseAsset  String
+  quoteAsset String
+  isActive   Boolean    @default(true)
+  precision  Json?
+  limits     Json?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([exchange, type, symbol])
+  @@index([exchange, type, isActive])
+}
+
+model Screener {
+  id                   String          @id @default(cuid())
+  userId               String
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                 String
+  description          String?
+  status               ScreenerStatus  @default(DRAFT)
+  marketType           MarketType      @default(LINEAR)
+  quoteAsset           String          @default("USDT")
+  symbols              String[]
+  timeframes           String[]
+  ruleTree             Json
+  ruleTreeHash         String
+  compiledDependencies Json?
+  triggerPolicy        TriggerPolicy   @default(ON_ENTER)
+  cooldownSeconds      Int             @default(900)
+  lastEvaluatedAt      DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  alerts               Alert[]
+  matches              ScreenerMatch[]
+
+  @@index([userId, status])
+  @@index([status, marketType])
+  @@index([ruleTreeHash])
+}
+
+model IndicatorPreset {
+  id        String        @id @default(cuid())
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  kind      IndicatorKind
+  timeframe String
+  source    PriceSource   @default(CLOSE)
+  params    Json
+  isSystem  Boolean       @default(false)
+  createdAt DateTime      @default(now())
+
+  @@index([userId, isSystem, kind])
+}
+
+model ScreenerMatch {
+  id              String   @id @default(cuid())
+  screenerId      String
+  screener        Screener @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  symbol          String
+  timeframe       String
+  candleCloseTime DateTime
+  matched         Boolean
+  score           Decimal? @db.Decimal(18, 8)
+  snapshot        Json
+  createdAt       DateTime @default(now())
+
+  @@unique([screenerId, symbol, timeframe, candleCloseTime])
+  @@index([screenerId, createdAt])
+  @@index([symbol, timeframe, candleCloseTime])
+}
+
+model Alert {
+  id              String          @id @default(cuid())
+  screenerId      String
+  screener        Screener        @relation(fields: [screenerId], references: [id], onDelete: Cascade)
+  isEnabled       Boolean         @default(true)
+  telegramEnabled Boolean         @default(true)
+  messageTemplate String?
+  cooldownSeconds Int             @default(900)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deliveries      AlertDelivery[]
+
+  @@index([screenerId, isEnabled])
+}
+
+model AlertDelivery {
+  id                String              @id @default(cuid())
+  alertId           String
+  alert             Alert               @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  screenerMatchId   String
+  status            AlertDeliveryStatus @default(PENDING)
+  message           String
+  provider          String              @default("telegram")
+  providerMessageId String?
+  error             String?
+  attempts          Int                 @default(0)
+  nextRetryAt       DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
+
+  @@unique([alertId, screenerMatchId])
+  @@index([status, nextRetryAt])
+}
