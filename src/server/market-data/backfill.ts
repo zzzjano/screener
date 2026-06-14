@@ -17,8 +17,7 @@ export async function backfillRollingWindow(
     return existing.length;
   }
 
-  const ccxtSymbol = symbol.includes("/") ? symbol : symbol.replace("USDT", "/USDT:USDT");
-  const rows = await fetchHistoricalCandles(ccxtSymbol, timeframe, requiredBars);
+  const rows = await fetchHistoricalCandles(symbol, timeframe, requiredBars);
   const candles = rows.map(ccxtOhlcvToCandle);
   await setRollingWindow(marketType, symbol, timeframe, candles, requiredBars + 50);
   logger.info("Backfill zakończony", { symbol, timeframe, count: candles.length });

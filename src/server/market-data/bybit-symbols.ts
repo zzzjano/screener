@@ -1,4 +1,4 @@
-import { getCcxtBybit } from "./ccxt-client";
+import { getCcxtBybit, normalizeCompactSymbol, toCompactSymbol } from "./ccxt-client";
 import { prisma } from "@/src/lib/prisma";
 import { MarketType } from "@prisma/client";
 import { logger } from "@/src/lib/logger";
@@ -13,7 +13,7 @@ export async function syncBybitMarkets(quoteAsset = "USDT"): Promise<number> {
     if (!market || !market.linear || !market.active) continue;
     if (market.quote !== quoteAsset) continue;
 
-    const symbol = market.symbol.replace("/", "");
+    const symbol = toCompactSymbol(market.symbol);
     await prisma.market.upsert({
       where: {
         exchange_type_symbol: {
@@ -51,5 +51,5 @@ export async function getActiveSymbols(quoteAsset = "USDT"): Promise<string[]> {
     select: { symbol: true },
     take: 500,
   });
-  return markets.map((m) => m.symbol);
+  return markets.map((m) => normalizeCompactSymbol(m.symbol));
 }

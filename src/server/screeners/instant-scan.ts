@@ -2,9 +2,12 @@ import type { RuleTree } from "../rules/ast";
 import { evaluateRuleTree } from "../rules/evaluator";
 import { buildEvaluationContext } from "../rules/evaluation-context";
 import { compileDependencies, validateRuleTree } from "../rules/validator";
-import { fetchHistoricalCandles, fetchLinearTickerMap, getCcxtBybit, normalizeLinearSymbol } from "../market-data/ccxt-client";
+import {
+  fetchHistoricalCandles,
+  fetchLinearTickerMap,
+  listActiveLinearCompactSymbols,
+} from "../market-data/ccxt-client";
 import { ccxtOhlcvToCandle } from "../market-data/rolling-window-store";
-import { getActiveSymbols } from "../market-data/bybit-symbols";
 import { logger } from "@/src/lib/logger";
 import type { Candle } from "../indicators/indicator-types";
 
@@ -43,7 +46,7 @@ export async function runInstantScan(
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   const marketType = options.marketType ?? "LINEAR";
 
-  const symbols = await resolveScanSymbols(options.quoteAsset ?? "USDT");
+  const symbols = await listActiveLinearCompactSymbols(options.quoteAsset ?? "USDT");
   const tickerMap = await fetchLinearTickerMap();
 
   const results: InstantScanMatch[] = [];
@@ -148,16 +151,4 @@ export async function mapPool<T, R>(
     results.push(...(await Promise.all(chunk.map(worker))));
   }
   return results;
-}
-
-async function resolveScanSymbols(quoteAsset: string): Promise<string[]> {
-  const fromDb = await getActiveSymbols(quoteAsset);
-  if (fromDb.length > 0) return fromDb;
-
-  const exchange = getCcxtBybit();
-  await exchange.loadMarkets();
-  return Object.keys(exchange.markets)
-    .filter((marketId) => marketId.endsWith(`/${quoteAsset}:${quoteAsset}`))
-    .map((marketId) => normalizeLinearSymbol(marketId))
-    .sort();
 }
