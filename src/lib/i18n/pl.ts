@@ -33,6 +33,7 @@ export const pl = {
     timeframes: "Interwały",
     status: "Status",
     noScreeners: "Brak screenerów. Utwórz pierwszy screener.",
+    noMatches: "Brak dopasowań. Screener oczekuje na zamknięcie świecy lub uruchomienie workera.",
     activate: "Aktywuj",
     pause: "Wstrzymaj",
     matches: "Dopasowania",

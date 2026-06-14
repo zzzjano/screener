@@ -21,6 +21,10 @@ export class BybitWsClient {
 
   constructor(private marketType = "LINEAR") {}
 
+  isRunning(): boolean {
+    return this.running;
+  }
+
   async start(): Promise<void> {
     this.running = true;
     await this.connect();
@@ -99,17 +103,21 @@ export class BybitWsClient {
 
     if (msg.op === "pong" || msg.success === true) return;
     if (msg.topic?.startsWith("kline.")) {
+      const topicMeta = parseKlineTopic(msg.topic);
       const data = msg.data;
       const rows = Array.isArray(data) ? data : data ? [data] : [];
       for (const row of rows) {
-        await this.processKline(row);
+        await this.processKline(row, topicMeta);
       }
     }
   }
 
-  private async processKline(row: BybitKlineRow): Promise<void> {
-    const symbol = row.symbol;
-    const timeframe = row.interval ? mapBybitInterval(row.interval) : "15m";
+  private async processKline(
+    row: BybitKlineRow,
+    topic: { symbol: string; timeframe: string },
+  ): Promise<void> {
+    const symbol = row.symbol ?? topic.symbol;
+    const timeframe = row.interval ? mapBybitInterval(row.interval) : topic.timeframe;
     const candle: Candle = {
       t: Number(row.start),
       T: Number(row.end ?? row.start),
@@ -144,20 +152,6 @@ interface BybitWsMessage {
   data?: BybitKlineRow | BybitKlineRow[];
 }
 
-interface BybitKlineRow {
-  start: number | string;
-  end?: number | string;
-  open: string;
-  high: string;
-  low: string;
-  close: string;
-  volume: string;
-  turnover?: string;
-  confirm?: boolean;
-  symbol: string;
-  interval?: string;
-}
-
 function mapBybitInterval(interval: string): string {
   const map: Record<string, string> = {
     "1": "1m",
@@ -175,6 +169,28 @@ function mapBybitInterval(interval: string): string {
     M: "1M",
   };
   return map[interval] ?? interval;
+}
+
+function parseKlineTopic(topic: string): { symbol: string; timeframe: string } {
+  // kline.15.BTCUSDT
+  const parts = topic.split(".");
+  const interval = parts[1] ?? "15";
+  const symbol = parts[2] ?? "BTCUSDT";
+  return { symbol, timeframe: mapBybitInterval(interval) };
+}
+
+interface BybitKlineRow {
+  start: number | string;
+  end?: number | string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+  turnover?: string;
+  confirm?: boolean;
+  symbol?: string;
+  interval?: string;
 }
 
 function sleep(ms: number): Promise<void> {

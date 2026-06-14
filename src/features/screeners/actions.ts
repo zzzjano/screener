@@ -22,7 +22,7 @@ export interface CreateScreenerInput {
 export async function createScreener(input: CreateScreenerInput) {
   const userId = await getDemoUserId();
   const tree = validateRuleTree(input.ruleTree);
-  const deps = compileDependencies(tree, input.symbols);
+  const deps = compileDependencies(tree, input.symbols, input.timeframes);
 
   const screener = await prisma.screener.create({
     data: {
@@ -46,7 +46,9 @@ export async function createScreener(input: CreateScreenerInput) {
 
 export async function updateScreener(id: string, input: Partial<CreateScreenerInput>) {
   const tree = input.ruleTree ? validateRuleTree(input.ruleTree) : undefined;
-  const deps = tree && input.symbols ? compileDependencies(tree, input.symbols) : undefined;
+  const deps = tree && input.symbols
+    ? compileDependencies(tree, input.symbols, input.timeframes ?? [])
+    : undefined;
 
   const screener = await prisma.screener.update({
     where: { id },
@@ -75,6 +77,7 @@ export async function activateScreener(id: string) {
   const deps = compileDependencies(
     validateRuleTree(screener.ruleTree),
     screener.symbols,
+    screener.timeframes,
   );
 
   await registerScreenerDependencies(
@@ -91,6 +94,7 @@ export async function activateScreener(id: string) {
         symbol,
         timeframe,
         requiredBars: deps.maxWarmupBars,
+        evaluateAfter: true,
       });
     }
   }

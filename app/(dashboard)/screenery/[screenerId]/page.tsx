@@ -3,6 +3,7 @@ import { Card } from "@/src/components/ui";
 import { pl } from "@/src/lib/i18n/pl";
 import { getScreener } from "@/src/features/screeners/actions";
 import { ScreenerActions, ScreenerStatusBadge, MatchesList } from "@/src/features/screeners/components/screener-actions";
+import { ScreenerPipelineStatus } from "@/src/features/screeners/components/screener-pipeline-status";
 
 export default async function ScreenerDetailPage({
   params,
@@ -28,6 +29,8 @@ export default async function ScreenerDetailPage({
         </div>
         <ScreenerActions screener={screener} />
       </div>
+
+      <ScreenerPipelineStatus screener={screener} />
 
       <Card>
         <h3 className="mb-3 text-sm font-medium text-zinc-300">{pl.screener.matches}</h3>

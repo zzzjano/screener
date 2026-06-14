@@ -36,9 +36,10 @@ npm run worker
 cp .env.example .env
 # Ustaw NEXT_PUBLIC_APP_URL na publiczny adres (np. http://twoj-vps:3011)
 docker compose up -d --build
-docker compose exec web npx prisma db push
-docker compose exec web npm run db:seed
+docker compose run --rm worker npm run db:seed
 ```
+
+Przy starcie kontener `web` automatycznie uruchamia `prisma migrate deploy` (entrypoint).
 
 Aplikacja: `http://localhost:3011` (domyślnie `WEB_PORT=3011` w `.env` lub compose).
 

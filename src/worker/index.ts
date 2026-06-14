@@ -2,7 +2,7 @@ import { createMarketSyncWorker } from "../server/jobs/processors/market-sync.pr
 import { createBackfillWorker } from "../server/jobs/processors/backfill.processor";
 import { createScreenerEvaluateWorker } from "../server/jobs/processors/screener-evaluate.processor";
 import { createAlertDeliveryWorker } from "../server/jobs/processors/alert-delivery.processor";
-import { startWebSocketIngest } from "../server/jobs/processors/websocket-ingest.processor";
+import { startWebSocketIngest, createSubscriptionSyncWorker } from "../server/jobs/processors/websocket-ingest.processor";
 import { marketSyncQueue, backfillQueue } from "../server/jobs/queues";
 import { syncBybitMarkets } from "../server/market-data/bybit-symbols";
 import { logger } from "../lib/logger";
@@ -14,6 +14,7 @@ const workers = [
   createBackfillWorker(),
   createScreenerEvaluateWorker(),
   createAlertDeliveryWorker(),
+  createSubscriptionSyncWorker(),
 ];
 
 async function bootstrap(): Promise<void> {

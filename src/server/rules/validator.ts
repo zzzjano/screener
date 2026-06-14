@@ -42,8 +42,9 @@ function walkNode(
 export function compileDependencies(
   tree: RuleTree,
   symbols: string[],
+  screenerTimeframes: string[] = [],
 ): ScreenerDependency {
-  const timeframes = new Set<string>();
+  const timeframes = new Set<string>(screenerTimeframes);
   const indicators = new Map<string, IndicatorConfigAst>();
   walkNode(tree.root, timeframes, indicators);
 

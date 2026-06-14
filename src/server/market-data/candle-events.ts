@@ -37,6 +37,10 @@ export const alertDeliveryQueue = {
   add: (...args: Parameters<Queue["add"]>) => getQueue("alert-delivery").add(...args),
 };
 
+export const subscriptionSyncQueue = {
+  add: (...args: Parameters<Queue["add"]>) => getQueue("subscription-sync").add(...args),
+};
+
 export async function emitCandleClosed(event: CandleClosedEvent): Promise<void> {
   await screenerEvaluateQueue.add(
     "candle.closed",

@@ -41,7 +41,7 @@ export function ScreenerStatusBadge({ status }: { status: Screener["status"] }) 
 
 export function MatchesList({ matches }: { matches: ScreenerMatch[] }) {
   if (matches.length === 0) {
-    return <p className="text-sm text-zinc-500">{pl.screener.noScreeners}</p>;
+    return <p className="text-sm text-zinc-500">{pl.screener.noMatches}</p>;
   }
   return (
     <ul className="space-y-2">

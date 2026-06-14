@@ -3,6 +3,7 @@ export {
   backfillQueue,
   screenerEvaluateQueue,
   alertDeliveryQueue,
+  subscriptionSyncQueue,
   emitCandleClosed,
 } from "../market-data/candle-events";
 
