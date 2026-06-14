@@ -46,7 +46,7 @@ export async function emitCandleClosed(event: CandleClosedEvent): Promise<void> 
     "candle.closed",
     event,
     {
-      jobId: `eval:${event.symbol}:${event.timeframe}:${event.candle.T}`,
+      jobId: `eval-${event.symbol}-${event.timeframe}-${event.candle.T}`,
       removeOnComplete: 1000,
       removeOnFail: 5000,
     },
