@@ -2,6 +2,7 @@ import { getRedis } from "@/src/lib/redis";
 import type { OHLCV } from "ccxt";
 import type { Candle } from "../indicators/indicator-types";
 import { ohlcvKey } from "../indicators/dependency-planner";
+import { timeframeToMs } from "./timeframe";
 
 const DEFAULT_MAX_CANDLES = 500;
 
@@ -15,6 +16,24 @@ export async function getRollingWindow(
   const key = ohlcvKey(exchange, marketType, symbol, timeframe);
   const raw = await redis.zrange(key, 0, -1);
   return raw.map((item) => JSON.parse(item) as Candle);
+}
+
+export async function getFreshRollingWindow(
+  marketType: string,
+  symbol: string,
+  timeframe: string,
+  requiredBars: number,
+  maxAgeMs?: number,
+  exchange = "bybit",
+): Promise<Candle[] | null> {
+  const candles = await getRollingWindow(marketType, symbol, timeframe, exchange);
+  if (candles.length < requiredBars) return null;
+
+  const last = candles[candles.length - 1];
+  const ageLimit = maxAgeMs ?? timeframeToMs(timeframe) * 2;
+  if (Date.now() - last.T > ageLimit) return null;
+
+  return candles.slice(-requiredBars);
 }
 
 export async function upsertCandle(

@@ -1,23 +1,38 @@
+import https from "https";
 import ccxt, { type bybit, type Market, type OHLCV, type Ticker } from "ccxt";
+import { createLimit } from "@/src/lib/concurrency/limit";
 import { withRateLimitBackoff } from "./rate-limit";
 import { logger } from "@/src/lib/logger";
 
 let exchangeInstance: bybit | null = null;
 let marketsLoadedAt = 0;
 const MARKETS_TTL_MS = 5 * 60 * 1000;
+const OHLCV_CONCURRENCY = 12;
+
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 20,
+  maxFreeSockets: 10,
+  timeout: 30_000,
+});
+
+const ohlcvLimit = createLimit(OHLCV_CONCURRENCY);
 
 export function getCcxtBybit(): bybit {
   if (!exchangeInstance) {
     exchangeInstance = new ccxt.bybit({
       enableRateLimit: true,
       options: { defaultType: "linear" },
+      agent: httpsAgent,
+      httpsAgent,
     });
   }
   return exchangeInstance;
 }
 
 export async function ensureMarketsLoaded(exchange: bybit = getCcxtBybit()): Promise<void> {
-  const hasMarkets = Object.keys(exchange.markets).length > 0;
+  const markets = exchange.markets ?? {};
+  const hasMarkets = Object.keys(markets).length > 0;
   const fresh = Date.now() - marketsLoadedAt < MARKETS_TTL_MS;
   if (hasMarkets && fresh) return;
 
@@ -26,7 +41,7 @@ export async function ensureMarketsLoaded(exchange: bybit = getCcxtBybit()): Pro
   await exchange.loadMarkets();
   marketsLoadedAt = Date.now();
   logger.info("CCXT loadMarkets zakończone", {
-    markets: Object.keys(exchange.markets).length,
+    markets: Object.keys(exchange.markets ?? {}).length,
     durationMs: Date.now() - startedAt,
   });
 }
@@ -66,14 +81,15 @@ export function normalizeCompactSymbol(input: string): string {
 
 export function resolveCcxtLinearSymbol(exchange: bybit, input: string): string | null {
   const compact = normalizeCompactSymbol(input);
+  const markets = exchange.markets ?? {};
 
   if (input.includes("/")) {
     const withSuffix = input.includes(":") ? input : `${input}:USDT`;
-    if (exchange.markets[withSuffix]?.active) return withSuffix;
-    if (exchange.markets[input]?.active) return input;
+    if (markets[withSuffix]?.active) return withSuffix;
+    if (markets[input]?.active) return input;
   }
 
-  for (const [ccxtSymbol, market] of Object.entries(exchange.markets)) {
+  for (const [ccxtSymbol, market] of Object.entries(markets)) {
     if (!market?.linear || !market.active) continue;
     if (toCompactSymbol(ccxtSymbol) === compact) {
       return ccxtSymbol;
@@ -83,7 +99,7 @@ export function resolveCcxtLinearSymbol(exchange: bybit, input: string): string 
   if (compact.endsWith("USDT")) {
     const base = compact.slice(0, -4);
     const candidate = `${base}/USDT:USDT`;
-    if (exchange.markets[candidate]) return candidate;
+    if (markets[candidate]) return candidate;
   }
 
   return null;
@@ -95,7 +111,7 @@ export function listLinearUsdtMarkets(
 ): Array<{ compact: string; ccxtSymbol: string; market: Market }> {
   const entries: Array<{ compact: string; ccxtSymbol: string; market: Market }> = [];
 
-  for (const market of Object.values(exchange.markets)) {
+  for (const market of Object.values(exchange.markets ?? {})) {
     if (!market?.linear || !market.active || market.quote !== quoteAsset) continue;
     entries.push({
       compact: toCompactSymbol(market.symbol),
@@ -131,6 +147,15 @@ export async function fetchHistoricalCandles(
   return withRateLimitBackoff(() =>
     activeSession.exchange.fetchOHLCV(ccxtSymbol, timeframe, undefined, limit),
   );
+}
+
+export function fetchHistoricalCandlesLimited(
+  symbol: string,
+  timeframe: string,
+  limit = 200,
+  session?: CcxtMarketSession,
+): Promise<OHLCV[]> {
+  return ohlcvLimit(() => fetchHistoricalCandles(symbol, timeframe, limit, session));
 }
 
 export async function fetchLinearTickerMap(session?: CcxtMarketSession): Promise<Map<string, { price: number; volume24h: number }>> {

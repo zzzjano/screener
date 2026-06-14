@@ -1,15 +1,23 @@
 import type { RuleTree } from "../rules/ast";
-import { evaluateRuleTree } from "../rules/evaluator";
-import { buildEvaluationContext } from "../rules/evaluation-context";
-import { compileDependencies, validateRuleTree } from "../rules/validator";
+import { validateRuleTree } from "../rules/validator";
 import {
   createCcxtMarketSession,
-  fetchHistoricalCandles,
+  fetchHistoricalCandlesLimited,
   fetchLinearTickerMap,
   type CcxtMarketSession,
 } from "../market-data/ccxt-client";
-import { ccxtOhlcvToCandle } from "../market-data/rolling-window-store";
-import { computeScanCandleLimit } from "./scan-candle-limit";
+import {
+  ccxtOhlcvToCandle,
+  getFreshRollingWindow,
+} from "../market-data/rolling-window-store";
+import { createIndicatorExecutionEngine } from "../indicators/indicator-execution-engine";
+import { buildScanDependencyGraph } from "./scan-dependencies";
+import { buildScanPlan } from "./scan-planner";
+import {
+  evaluateRuleTreeForScan,
+  type ScanEvalContext,
+  type TickerSnapshot,
+} from "./scan-evaluator";
 import { logger } from "@/src/lib/logger";
 import type { Candle } from "../indicators/indicator-types";
 
@@ -43,125 +51,174 @@ export async function runInstantScan(
 ): Promise<InstantScanResult> {
   const startedAt = Date.now();
   const tree = validateRuleTree(input);
-  const deps = compileDependencies(tree, []);
-  const timeframes = deps.timeframes.length > 0 ? deps.timeframes : ["15m"];
-  const primaryTimeframe = timeframes[0];
-  const candleLimit = computeScanCandleLimit(tree, deps);
+  const plan = buildScanPlan(tree);
+  const depGraph = buildScanDependencyGraph(tree);
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   const marketType = options.marketType ?? "LINEAR";
 
   logger.info("Instant scan start", {
-    timeframes,
-    candleLimit,
+    isTickerOnly: plan.isTickerOnly,
+    timeframes: depGraph.timeframes,
+    candleLimit: plan.candleLimit,
     concurrency,
-    indicatorCount: deps.indicators.length,
+    indicatorCount: plan.indicatorCount,
   });
 
   const session = await createCcxtMarketSession(options.quoteAsset ?? "USDT");
   const symbols = Array.from(session.ccxtSymbolByCompact.keys()).sort();
   const tickerMap = await fetchLinearTickerMap(session);
 
-  logger.info("Instant scan - skanowanie symboli", { total: symbols.length });
+  const symbolWorkload = symbols.length * plan.indicatorCount * plan.candleLimit;
+  const indicatorEngine = createIndicatorExecutionEngine({
+    symbolWorkload,
+    indicatorCount: plan.indicatorCount,
+  });
 
-  const results: InstantScanMatch[] = [];
-  let processed = 0;
-  let skipped = 0;
+  try {
+    logger.info("Instant scan - skanowanie symboli", {
+      total: symbols.length,
+      mode: plan.isTickerOnly ? "ticker-only" : "full",
+    });
 
-  for (let index = 0; index < symbols.length; index += concurrency) {
-    const chunk = symbols.slice(index, index + concurrency);
-    const chunkResults = await Promise.all(
-      chunk.map((symbol) =>
-        scanSymbol({
-          symbol,
-          tree,
-          timeframes,
-          primaryTimeframe,
-          marketType,
-          candleLimit,
-          tickerMap,
-          session,
-        }),
-      ),
-    );
+    const results: InstantScanMatch[] = [];
+    let skipped = 0;
 
-    for (const match of chunkResults) {
-      processed += 1;
-      if (match) {
-        results.push(match);
-      } else {
-        skipped += 1;
+    for (let index = 0; index < symbols.length; index += concurrency) {
+      const chunk = symbols.slice(index, index + concurrency);
+      const chunkResults = await Promise.all(
+        chunk.map((symbol) =>
+          scanSymbol({
+            symbol,
+            tree,
+            plan,
+            depGraph,
+            marketType,
+            tickerMap,
+            session,
+            indicatorEngine,
+          }),
+        ),
+      );
+
+      for (const match of chunkResults) {
+        if (match) {
+          results.push(match);
+        } else {
+          skipped += 1;
+        }
+      }
+
+      const done = Math.min(index + concurrency, symbols.length);
+      if (done % PROGRESS_LOG_EVERY === 0 || done === symbols.length) {
+        logger.info("Instant scan postęp", {
+          done,
+          total: symbols.length,
+          matched: results.length,
+          skipped,
+          elapsedMs: Date.now() - startedAt,
+        });
       }
     }
 
-    const done = Math.min(index + concurrency, symbols.length);
-    if (done % PROGRESS_LOG_EVERY === 0 || done === symbols.length) {
-      logger.info("Instant scan postęp", {
-        done,
-        total: symbols.length,
-        matched: results.length,
-        skipped,
-        elapsedMs: Date.now() - startedAt,
-      });
-    }
-  }
+    const durationMs = Date.now() - startedAt;
+    logger.info("Instant scan zakończony", {
+      scanned: symbols.length,
+      matched: results.length,
+      skipped,
+      durationMs,
+      isTickerOnly: plan.isTickerOnly,
+    });
 
-  const durationMs = Date.now() - startedAt;
-  logger.info("Instant scan zakończony", {
-    scanned: symbols.length,
-    matched: results.length,
-    skipped,
-    durationMs,
-  });
+    return {
+      scanned: symbols.length,
+      matched: results.length,
+      durationMs,
+      results: results.sort((a, b) => b.volume24h - a.volume24h),
+    };
+  } finally {
+    await indicatorEngine.dispose();
+  }
+}
+
+async function loadCandlesRedisFirst(
+  symbol: string,
+  timeframe: string,
+  requiredBars: number,
+  marketType: string,
+  session: CcxtMarketSession,
+): Promise<Candle[]> {
+  const cached = await getFreshRollingWindow(marketType, symbol, timeframe, requiredBars);
+  if (cached) return cached;
+
+  const rows = await fetchHistoricalCandlesLimited(symbol, timeframe, requiredBars, session);
+  return rows.map(ccxtOhlcvToCandle);
+}
+
+function createScanContext(
+  symbol: string,
+  marketType: string,
+  ticker: TickerSnapshot | undefined,
+  depGraph: ReturnType<typeof buildScanDependencyGraph>,
+  session: CcxtMarketSession,
+  indicatorEngine: ScanEvalContext["indicatorEngine"],
+): ScanEvalContext {
+  const candlesByTf = new Map<string, Candle[]>();
+
+  const loadCandles = async (timeframe: string): Promise<Candle[]> => {
+    const existing = candlesByTf.get(timeframe);
+    if (existing) return existing;
+
+    const requiredBars = depGraph.candleWindowsByTimeframe[timeframe] ?? depGraph.maxWarmupBars;
+    const candles = await loadCandlesRedisFirst(symbol, timeframe, requiredBars, marketType, session);
+    candlesByTf.set(timeframe, candles);
+    return candles;
+  };
 
   return {
-    scanned: symbols.length,
-    matched: results.length,
-    durationMs,
-    results: results.sort((a, b) => b.volume24h - a.volume24h),
+    symbol,
+    marketType,
+    ticker,
+    candlesByTf,
+    loadCandles,
+    indicatorEngine,
   };
 }
 
 async function scanSymbol({
   symbol,
   tree,
-  timeframes,
-  primaryTimeframe,
+  plan,
+  depGraph,
   marketType,
-  candleLimit,
   tickerMap,
   session,
+  indicatorEngine,
 }: {
   symbol: string;
   tree: RuleTree;
-  timeframes: string[];
-  primaryTimeframe: string;
+  plan: ReturnType<typeof buildScanPlan>;
+  depGraph: ReturnType<typeof buildScanDependencyGraph>;
   marketType: string;
-  candleLimit: number;
   tickerMap: Map<string, { price: number; volume24h: number }>;
   session: CcxtMarketSession;
+  indicatorEngine: ScanEvalContext["indicatorEngine"];
 }): Promise<InstantScanMatch | null> {
   try {
-    const candlesByTf = new Map<string, Candle[]>();
+    const ticker = tickerMap.get(symbol);
+    if (!ticker) return null;
 
-    for (const timeframe of timeframes) {
-      const rows = await fetchHistoricalCandles(symbol, timeframe, candleLimit, session);
-      const candles = rows.map(ccxtOhlcvToCandle);
-      if (candles.length === 0) return null;
-      candlesByTf.set(timeframe, candles);
-    }
-
-    const ctx = buildEvaluationContext(symbol, marketType, candlesByTf);
-    const evaluation = evaluateRuleTree(tree, ctx);
+    const ctx = createScanContext(symbol, marketType, ticker, depGraph, session, indicatorEngine);
+    const evaluation = await evaluateRuleTreeForScan(tree, ctx);
     if (!evaluation.passed) return null;
 
-    const ticker = tickerMap.get(symbol);
-    const primaryCandles = candlesByTf.get(primaryTimeframe) ?? candlesByTf.values().next().value;
+    const primaryTimeframe = plan.primaryTimeframe;
+    const primaryCandles = ctx.candlesByTf.get(primaryTimeframe);
     const lastCandle = primaryCandles?.[primaryCandles.length - 1];
 
     return {
       symbol,
-      price: ticker?.price ?? lastCandle?.c ?? 0,
-      volume24h: ticker?.volume24h ?? lastCandle?.v ?? 0,
+      price: ticker.price ?? lastCandle?.c ?? 0,
+      volume24h: ticker.volume24h ?? lastCandle?.v ?? 0,
       timeframe: primaryTimeframe,
       matchedConditions: evaluation.snapshots
         .filter((snapshot) => snapshot.passed)
