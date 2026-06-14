@@ -23,6 +23,7 @@ function tickerContext(overrides: Partial<ScanEvalContext> = {}): ScanEvalContex
     symbol: "BTCUSDT",
     marketType: "LINEAR",
     ticker: { price: 100, volume24h: 50 },
+    isTickerOnlyScan: true,
     candlesByTf: new Map(),
     loadCandles,
     indicatorEngine: new InlineIndicatorExecutionEngine(),
@@ -56,7 +57,7 @@ describe("evaluateRuleTreeForScan", () => {
     expect(ctx.loadCandles).not.toHaveBeenCalled();
   });
 
-  it("short-circuits AND groups on cheap ticker failure before OHLCV", async () => {
+  it("uses timeframe candle volume instead of 24h ticker volume", async () => {
     const tree = validateRuleTree({
       version: 1,
       root: {
@@ -69,32 +70,19 @@ describe("evaluateRuleTreeForScan", () => {
             id: "volume",
             left: { kind: "VOLUME", timeframe: "1m" },
             comparator: "GT",
-            right: { kind: "CONSTANT", value: 1_000_000 },
-          },
-          {
-            type: "CONDITION",
-            id: "rsi",
-            left: {
-              kind: "INDICATOR",
-              indicator: {
-                id: "rsi-1",
-                kind: "RSI",
-                timeframe: "15m",
-                source: "CLOSE",
-                params: { period: 14 },
-              },
-            },
-            comparator: "LT",
-            right: { kind: "CONSTANT", value: 30 },
+            right: { kind: "CONSTANT", value: 1_000 },
           },
         ],
       },
     });
 
-    const ctx = tickerContext({ ticker: { price: 100, volume24h: 10 } });
+    const ctx = tickerContext({
+      ticker: { price: 100, volume24h: 1_000_000 },
+      loadCandles: vi.fn(async () => [candle(100, 10)]),
+    });
     const result = await evaluateRuleTreeForScan(tree, ctx);
     expect(result.passed).toBe(false);
-    expect(ctx.loadCandles).not.toHaveBeenCalled();
+    expect(ctx.loadCandles).toHaveBeenCalledWith("1m");
   });
 
   it("loads candles when indicator evaluation is required", async () => {
@@ -127,11 +115,67 @@ describe("evaluateRuleTreeForScan", () => {
 
     const closes = [20, 19, 18, 17, 16, 15, 14, 13, 12, 11];
     const ctx = tickerContext({
+      isTickerOnlyScan: false,
       loadCandles: vi.fn(async () => closes.map((value) => candle(value))),
     });
 
     const result = await evaluateRuleTreeForScan(tree, ctx);
     expect(result.passed).toBe(true);
     expect(ctx.loadCandles).toHaveBeenCalledWith("15m");
+  });
+
+  it("loads separate timeframe candles for mixed MTF price and indicator rules", async () => {
+    const tree = validateRuleTree({
+      version: 1,
+      root: {
+        type: "GROUP",
+        id: "root",
+        operator: "AND",
+        children: [
+          {
+            type: "CONDITION",
+            id: "rsi-15m",
+            left: {
+              kind: "INDICATOR",
+              indicator: {
+                id: "rsi-1",
+                kind: "RSI",
+                timeframe: "15m",
+                source: "CLOSE",
+                params: { period: 2 },
+              },
+            },
+            comparator: "LT",
+            right: { kind: "CONSTANT", value: 90 },
+          },
+          {
+            type: "CONDITION",
+            id: "close-1h",
+            left: { kind: "PRICE", source: "CLOSE", timeframe: "1h" },
+            comparator: "GT",
+            right: { kind: "CONSTANT", value: 100 },
+          },
+        ],
+      },
+    });
+
+    const loadCandles = vi.fn(async (timeframe: string) => {
+      if (timeframe === "1h") return [candle(200)];
+      if (timeframe === "15m") {
+        return [20, 19, 18, 17, 16, 15, 14, 13, 12, 11].map((value) => candle(value));
+      }
+      return [];
+    });
+    const ctx = tickerContext({
+      isTickerOnlyScan: false,
+      ticker: { price: 1, volume24h: 50 },
+      loadCandles,
+    });
+
+    const result = await evaluateRuleTreeForScan(tree, ctx);
+    expect(result.passed).toBe(true);
+    expect(loadCandles).toHaveBeenCalledWith("1h");
+    expect(loadCandles).toHaveBeenCalledWith("15m");
+    expect(result.snapshots.find((snapshot) => snapshot.nodeId === "close-1h")?.leftValue).toBe(200);
   });
 });

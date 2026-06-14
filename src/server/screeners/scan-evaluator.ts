@@ -15,6 +15,7 @@ export interface ScanEvalContext {
   symbol: string;
   marketType: string;
   ticker?: TickerSnapshot;
+  isTickerOnlyScan: boolean;
   candlesByTf: Map<string, Candle[]>;
   loadCandles: (timeframe: string) => Promise<Candle[]>;
   indicatorEngine: IndicatorExecutionEngine;
@@ -25,16 +26,13 @@ async function resolveOperand(operand: Operand, ctx: ScanEvalContext) {
     case "CONSTANT":
       return { current: operand.value };
     case "PRICE": {
-      if (operand.source === "CLOSE" && ctx.ticker) {
+      if (ctx.isTickerOnlyScan && operand.source === "CLOSE" && ctx.ticker) {
         return { current: ctx.ticker.price };
       }
       const candles = await ctx.loadCandles(operand.timeframe);
       return getPriceFromCandles(candles, operand.source);
     }
     case "VOLUME": {
-      if (ctx.ticker) {
-        return { current: ctx.ticker.volume24h };
-      }
       const candles = await ctx.loadCandles(operand.timeframe);
       if (candles.length === 0) return { current: NaN };
       const last = candles[candles.length - 1];

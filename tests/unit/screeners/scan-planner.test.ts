@@ -24,7 +24,7 @@ describe("buildScanPlan", () => {
     expect(getConditionDataCost(priceCondition())).toBe("ticker");
   });
 
-  it("classifies volume rules as ticker-only", () => {
+  it("classifies timeframe volume rules as candle-required", () => {
     const volumeCondition: ConditionNode = {
       type: "CONDITION",
       id: "v1",
@@ -36,7 +36,8 @@ describe("buildScanPlan", () => {
       version: 1,
       root: { type: "GROUP", id: "root", operator: "AND", children: [volumeCondition] },
     });
-    expect(buildScanPlan(tree).isTickerOnly).toBe(true);
+    expect(buildScanPlan(tree).isTickerOnly).toBe(false);
+    expect(getConditionDataCost(volumeCondition)).toBe("candle");
   });
 
   it("requires candles for RSI rules", () => {

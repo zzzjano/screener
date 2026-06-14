@@ -158,6 +158,7 @@ function createScanContext(
   symbol: string,
   marketType: string,
   ticker: TickerSnapshot | undefined,
+  isTickerOnlyScan: boolean,
   depGraph: ReturnType<typeof buildScanDependencyGraph>,
   session: CcxtMarketSession,
   indicatorEngine: ScanEvalContext["indicatorEngine"],
@@ -178,6 +179,7 @@ function createScanContext(
     symbol,
     marketType,
     ticker,
+    isTickerOnlyScan,
     candlesByTf,
     loadCandles,
     indicatorEngine,
@@ -207,7 +209,15 @@ async function scanSymbol({
     const ticker = tickerMap.get(symbol);
     if (!ticker) return null;
 
-    const ctx = createScanContext(symbol, marketType, ticker, depGraph, session, indicatorEngine);
+    const ctx = createScanContext(
+      symbol,
+      marketType,
+      ticker,
+      plan.isTickerOnly,
+      depGraph,
+      session,
+      indicatorEngine,
+    );
     const evaluation = await evaluateRuleTreeForScan(tree, ctx);
     if (!evaluation.passed) return null;
 

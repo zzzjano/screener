@@ -48,7 +48,6 @@ function conditionNeedsCandles(node: ConditionNode): boolean {
 function canEvaluateFromTickerOnly(operand: Operand): boolean {
   if (operand.kind === "CONSTANT") return true;
   if (operand.kind === "PRICE") return operand.source === "CLOSE";
-  if (operand.kind === "VOLUME") return true;
   return false;
 }
 
