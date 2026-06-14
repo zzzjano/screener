@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: screener
-      POSTGRES_PASSWORD: screener
-      POSTGRES_DB: screener
+      POSTGRES_USER: ${POSTGRES_USER:-screener}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-screener}
+      POSTGRES_DB: ${POSTGRES_DB:-screener}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U screener"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-screener}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -18,7 +18,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -32,7 +32,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     ports:
-      - "3011:3000"
+      - "${WEB_PORT:-3011}:3000"
     env_file:
       - .env
     depends_on:

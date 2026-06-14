@@ -1,10 +1,6 @@
 services:
   web:
     restart: unless-stopped
-    environment:
-      NODE_ENV: production
 
   worker:
     restart: unless-stopped
-    environment:
-      NODE_ENV: production

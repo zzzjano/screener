@@ -12,7 +12,7 @@ Polski screener kryptowalut zbudowany na Next.js, PostgreSQL, Redis, Bybit WebSo
 - technicalindicators
 - Telegram Bot API
 
-## Uruchomienie lokalne
+# Uruchomienie lokalne
 
 ```bash
 cp .env.example .env
@@ -29,6 +29,23 @@ Worker (osobny terminal):
 ```bash
 npm run worker
 ```
+
+## Docker (web + worker + baza)
+
+```bash
+cp .env.example .env
+# Ustaw NEXT_PUBLIC_APP_URL na publiczny adres (np. http://twoj-vps:3011)
+docker compose up -d --build
+docker compose exec web npx prisma db push
+docker compose exec web npm run db:seed
+```
+
+Aplikacja: `http://localhost:3011` (domyślnie `WEB_PORT=3011` w `.env` lub compose).
+
+W `.env` ustaw hosty `postgres` i `redis` (nie `localhost`) — Docker Compose przekazuje ten plik
+bezpośrednio do kontenerów (`env_file: .env`), bez nadpisywania w compose.
+
+Przy `npm run dev` na hoście (bez Dockera) zmień w `.env` na `localhost:5432` i `localhost:6379`.
 
 ## Testy
 
