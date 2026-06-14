@@ -39,7 +39,7 @@ docker compose up -d --build
 docker compose run --rm worker npm run db:seed
 ```
 
-Przy starcie kontener `web` automatycznie uruchamia `prisma migrate deploy` (entrypoint).
+Przy starcie serwis `migrate` (one-shot) uruchamia `prisma migrate deploy` przed `web` i `worker`.
 
 Aplikacja: `http://localhost:3011` (domyślnie `WEB_PORT=3011` w `.env` lub compose).
 
