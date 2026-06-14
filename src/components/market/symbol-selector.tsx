@@ -1,43 +1,16 @@
 "use client";
 
-import { Input } from "@/src/components/ui";
+import { SymbolInput } from "@/src/components/market/symbol-input";
 import { pl } from "@/src/lib/i18n/pl";
 import { useBuilderStore } from "@/src/features/screeners/components/builder-store";
 
-const POPULAR_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT"];
 const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
 export function SymbolSelector() {
   const symbols = useBuilderStore((s) => s.symbols);
   const setSymbols = useBuilderStore((s) => s.setSymbols);
 
-  return (
-    <div className="space-y-2">
-      <label className="text-sm text-zinc-400">{pl.screener.symbols}</label>
-      <div className="flex flex-wrap gap-2">
-        {POPULAR_SYMBOLS.map((symbol) => {
-          const active = symbols.includes(symbol);
-          return (
-            <button
-              key={symbol}
-              type="button"
-              onClick={() =>
-                setSymbols(active ? symbols.filter((s) => s !== symbol) : [...symbols, symbol])
-              }
-              className={`rounded-lg px-3 py-1.5 text-xs ${active ? "bg-emerald-600 text-white" : "bg-zinc-800 text-zinc-300"}`}
-            >
-              {symbol}
-            </button>
-          );
-        })}
-      </div>
-      <Input
-        value={symbols.join(", ")}
-        onChange={(e) => setSymbols(e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
-        placeholder="BTCUSDT, ETHUSDT"
-      />
-    </div>
-  );
+  return <SymbolInput symbols={symbols} onChange={setSymbols} />;
 }
 
 export function TimeframeSelector() {
@@ -57,7 +30,11 @@ export function TimeframeSelector() {
               onClick={() =>
                 setTimeframes(active ? timeframes.filter((t) => t !== tf) : [...timeframes, tf])
               }
-              className={`rounded-lg px-3 py-1.5 text-xs ${active ? "bg-emerald-600 text-white" : "bg-zinc-800 text-zinc-300"}`}
+              className={`rounded-md border px-2.5 py-1 font-mono text-xs transition ${
+                active
+                  ? "border-emerald-600 bg-emerald-600/20 text-emerald-300"
+                  : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              }`}
             >
               {tf}
             </button>

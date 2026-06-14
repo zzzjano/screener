@@ -14,6 +14,9 @@ export default async function ScreenersPage() {
         <Link href="/screenery/nowy" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-500">
           {pl.screener.new}
         </Link>
+        <Link href="/screenery/live" className="rounded-lg border border-emerald-700 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-950/40">
+          {pl.nav.liveScreener}
+        </Link>
       </div>
 
       {screeners.length === 0 ? (

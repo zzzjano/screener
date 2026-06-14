@@ -4,6 +4,10 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type { RuleNode, RuleTree } from "@/src/server/rules/ast";
 import { AST_VERSION } from "@/src/server/rules/ast";
+import {
+  createConstantOperand,
+  createIndicatorOperand,
+} from "@/src/features/screeners/components/operand-defaults";
 
 function newId() {
   return `node-${Math.random().toString(36).slice(2, 9)}`;
@@ -29,9 +33,9 @@ interface BuilderState {
 const defaultCondition = (): Extract<RuleNode, { type: "CONDITION" }> => ({
   type: "CONDITION",
   id: newId(),
-  left: { kind: "INDICATOR", indicator: { id: newId(), kind: "RSI", timeframe: "15m", source: "CLOSE", params: { period: 14 } } },
+  left: createIndicatorOperand("RSI", "15m"),
   comparator: "LT",
-  right: { kind: "CONSTANT", value: 30 },
+  right: createConstantOperand(30),
 });
 
 const defaultRoot = (): Extract<RuleNode, { type: "GROUP" }> => ({

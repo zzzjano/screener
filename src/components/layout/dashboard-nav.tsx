@@ -8,6 +8,7 @@ import { cn } from "@/src/lib/utils";
 const links = [
   { href: "/dashboard", label: pl.nav.dashboard },
   { href: "/screenery", label: pl.nav.screeners },
+  { href: "/screenery/live", label: pl.nav.liveScreener },
   { href: "/alerty", label: pl.nav.alerts },
   { href: "/ustawienia/telegram", label: pl.nav.telegram },
 ];
