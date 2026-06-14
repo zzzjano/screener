@@ -1,10 +1,13 @@
 import type { RuleTree } from "../rules/ast";
+import type { ConditionNode, Operand, RuleNode } from "../rules/ast";
+import type { RuleEvaluationSnapshot } from "../rules/evaluator";
 import { validateRuleTree } from "../rules/validator";
 import {
   createCcxtMarketSession,
   fetchHistoricalCandlesLimited,
   fetchLinearTickerMap,
   type CcxtMarketSession,
+  type LinearTickerSnapshot,
 } from "../market-data/ccxt-client";
 import {
   ccxtOhlcvToCandle,
@@ -16,7 +19,6 @@ import { buildScanPlan } from "./scan-planner";
 import {
   evaluateRuleTreeForScan,
   type ScanEvalContext,
-  type TickerSnapshot,
 } from "./scan-evaluator";
 import { logger } from "@/src/lib/logger";
 import type { Candle } from "../indicators/indicator-types";
@@ -25,8 +27,17 @@ export interface InstantScanMatch {
   symbol: string;
   price: number;
   volume24h: number;
+  change24hPct: number | null;
+  fundingRate: number | null;
   timeframe: string;
-  matchedConditions: string[];
+  matchedConditions: MatchedConditionBadge[];
+}
+
+export interface MatchedConditionBadge {
+  nodeId: string;
+  label: string;
+  leftValue?: number;
+  rightValue?: number;
 }
 
 export interface InstantScanResult {
@@ -157,7 +168,7 @@ async function loadCandlesRedisFirst(
 function createScanContext(
   symbol: string,
   marketType: string,
-  ticker: TickerSnapshot | undefined,
+  ticker: LinearTickerSnapshot | undefined,
   isTickerOnlyScan: boolean,
   depGraph: ReturnType<typeof buildScanDependencyGraph>,
   session: CcxtMarketSession,
@@ -201,7 +212,7 @@ async function scanSymbol({
   plan: ReturnType<typeof buildScanPlan>;
   depGraph: ReturnType<typeof buildScanDependencyGraph>;
   marketType: string;
-  tickerMap: Map<string, { price: number; volume24h: number }>;
+  tickerMap: Map<string, LinearTickerSnapshot>;
   session: CcxtMarketSession;
   indicatorEngine: ScanEvalContext["indicatorEngine"];
 }): Promise<InstantScanMatch | null> {
@@ -229,10 +240,10 @@ async function scanSymbol({
       symbol,
       price: ticker.price ?? lastCandle?.c ?? 0,
       volume24h: ticker.volume24h ?? lastCandle?.v ?? 0,
+      change24hPct: ticker.change24hPct,
+      fundingRate: ticker.fundingRate,
       timeframe: primaryTimeframe,
-      matchedConditions: evaluation.snapshots
-        .filter((snapshot) => snapshot.passed)
-        .map((snapshot) => snapshot.explanationPl),
+      matchedConditions: formatMatchedConditions(tree, evaluation.snapshots),
     };
   } catch (error) {
     logger.warn("Instant scan - pominięto symbol", {
@@ -241,6 +252,108 @@ async function scanSymbol({
     });
     return null;
   }
+}
+
+function formatMatchedConditions(
+  tree: RuleTree,
+  snapshots: RuleEvaluationSnapshot[],
+): MatchedConditionBadge[] {
+  const conditions = new Map<string, ConditionNode>();
+  collectConditions(tree.root, conditions);
+
+  return snapshots
+    .filter((snapshot) => snapshot.passed)
+    .map((snapshot) => {
+      const condition = conditions.get(snapshot.nodeId);
+      return {
+        nodeId: snapshot.nodeId,
+        label: condition ? formatConditionBadge(condition, snapshot) : snapshot.explanationPl,
+        leftValue: snapshot.leftValue,
+        rightValue: snapshot.rightValue,
+      };
+    });
+}
+
+function collectConditions(node: RuleNode, conditions: Map<string, ConditionNode>): void {
+  if (node.type === "CONDITION") {
+    conditions.set(node.id, node);
+    return;
+  }
+
+  for (const child of node.children) {
+    collectConditions(child, conditions);
+  }
+}
+
+function formatConditionBadge(
+  condition: ConditionNode,
+  snapshot: RuleEvaluationSnapshot,
+): string {
+  const leftLabel = formatOperandLabel(condition.left);
+  const rightLabel = formatOperandLabel(condition.right);
+  const comparator = formatComparator(condition.comparator);
+
+  if (condition.left.kind === "INDICATOR" && condition.right.kind === "CONSTANT") {
+    return `${leftLabel}: ${formatBadgeNumber(snapshot.leftValue)}`;
+  }
+
+  if (condition.left.kind === "PRICE" && condition.right.kind === "INDICATOR") {
+    return `${leftLabel} ${comparator} ${rightLabel}`;
+  }
+
+  if (condition.left.kind === "INDICATOR" && condition.right.kind === "INDICATOR") {
+    return `${leftLabel} ${comparator} ${rightLabel}`;
+  }
+
+  return `${leftLabel} ${comparator} ${rightLabel}`;
+}
+
+function formatOperandLabel(operand: Operand): string {
+  switch (operand.kind) {
+    case "CONSTANT":
+      return formatBadgeNumber(operand.value);
+    case "PRICE":
+      return operand.source === "CLOSE" ? "Price" : operand.source;
+    case "VOLUME":
+      return `Vol ${operand.timeframe}`;
+    case "MARKET_FIELD":
+      return operand.field;
+    case "INDICATOR": {
+      const period = operand.indicator.params.period;
+      const suffix = typeof period === "number" ? ` ${period}` : "";
+      return `${operand.indicator.kind}${suffix}`;
+    }
+  }
+}
+
+function formatComparator(comparator: ConditionNode["comparator"]): string {
+  switch (comparator) {
+    case "GT":
+      return ">";
+    case "GTE":
+      return ">=";
+    case "LT":
+      return "<";
+    case "LTE":
+      return "<=";
+    case "EQ":
+      return "=";
+    case "NEQ":
+      return "!=";
+    case "CROSSES_ABOVE":
+      return "cross >";
+    case "CROSSES_BELOW":
+      return "cross <";
+    default:
+      return comparator;
+  }
+}
+
+function formatBadgeNumber(value: number | undefined): string {
+  if (value === undefined || !Number.isFinite(value)) return "n/a";
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: Math.abs(value) >= 100 ? 2 : 4,
+  }).format(value);
 }
 
 export async function mapPool<T, R>(

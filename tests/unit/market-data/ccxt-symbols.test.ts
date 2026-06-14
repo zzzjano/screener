@@ -108,7 +108,12 @@ describe("ccxt symbol normalization", () => {
       BTCUSDT: { last: 100, quoteVolume: 1_000 },
       ETHUSDT: { last: 200, quoteVolume: 2_000 },
       "ETH/USDT": { last: 1, quoteVolume: 10 },
-      "ETH/USDT:USDT": { last: 201, quoteVolume: 2_001 },
+      "ETH/USDT:USDT": {
+        last: 201,
+        percentage: 3.25,
+        quoteVolume: 2_001,
+        info: { fundingRate: "0.0001" },
+      },
       XRPUSD: { last: 3, quoteVolume: 30 },
     })) as unknown as bybit["fetchTickers"];
     exchange.markets["ETH/USDT"] = market({
@@ -141,6 +146,8 @@ describe("ccxt symbol normalization", () => {
 
     expect(tickerMap.get("BTCUSDT")?.price).toBe(100);
     expect(tickerMap.get("ETHUSDT")?.price).toBe(201);
+    expect(tickerMap.get("ETHUSDT")?.change24hPct).toBe(3.25);
+    expect(tickerMap.get("ETHUSDT")?.fundingRate).toBe(0.0001);
     expect(tickerMap.has("XRPUSD")).toBe(false);
   });
 });

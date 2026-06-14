@@ -54,6 +54,8 @@ export const pl = {
     results: "Wyniki",
     symbol: "Symbol",
     price: "Cena",
+    change24h: "% Zmiany 24h",
+    funding: "Funding",
     volume24h: "Wolumen 24h",
     timeframe: "Interwał",
     conditions: "Warunki",

@@ -21,6 +21,34 @@ function formatVolume(value: number): string {
   }).format(value);
 }
 
+function formatPercent(value: number | null | undefined, digits = 2): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}%`;
+}
+
+function formatFundingRate(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return `${(value * 100).toFixed(4)}%`;
+}
+
+function changeClassName(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "text-zinc-500";
+  if (value > 0) return "text-green-500";
+  if (value < 0) return "text-red-500";
+  return "text-zinc-400";
+}
+
+function fundingClassName(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "text-zinc-500";
+  if (Math.abs(value * 100) >= 0.05) return "text-amber-400";
+  return "text-zinc-300";
+}
+
+function bybitTradeUrl(symbol: string): string {
+  const slug = symbol.split(":")[0].replace("/", "").toUpperCase();
+  return `https://www.bybit.com/trade/usdt/${slug}`;
+}
+
 export function LiveScreenerPanel() {
   const toRuleTree = useBuilderStore((s) => s.toRuleTree);
   const [loading, setLoading] = useState(false);
@@ -93,6 +121,8 @@ export function LiveScreenerPanel() {
                 <tr>
                   <th className="px-4 py-3">{pl.liveScreener.symbol}</th>
                   <th className="px-4 py-3">{pl.liveScreener.price}</th>
+                  <th className="px-4 py-3">{pl.liveScreener.change24h}</th>
+                  <th className="px-4 py-3">{pl.liveScreener.funding}</th>
                   <th className="px-4 py-3">{pl.liveScreener.volume24h}</th>
                   <th className="px-4 py-3">{pl.liveScreener.timeframe}</th>
                   <th className="px-4 py-3">{pl.liveScreener.conditions}</th>
@@ -101,12 +131,46 @@ export function LiveScreenerPanel() {
               <tbody>
                 {result.results.map((row) => (
                   <tr key={row.symbol} className="border-t border-zinc-800/80 hover:bg-zinc-900/50">
-                    <td className="px-4 py-3 font-mono text-emerald-300">{row.symbol}</td>
+                    <td className="px-4 py-3 font-mono">
+                      <a
+                        href={bybitTradeUrl(row.symbol)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-emerald-300 underline-offset-4 hover:text-emerald-200 hover:underline"
+                      >
+                        {row.symbol}
+                      </a>
+                    </td>
                     <td className="px-4 py-3 font-mono text-zinc-200">{formatNumber(row.price)}</td>
+                    <td className={`px-4 py-3 font-mono ${changeClassName(row.change24hPct)}`}>
+                      {formatPercent(row.change24hPct)}
+                    </td>
+                    <td className={`px-4 py-3 font-mono ${fundingClassName(row.fundingRate)}`}>
+                      {formatFundingRate(row.fundingRate)}
+                    </td>
                     <td className="px-4 py-3 font-mono text-zinc-300">{formatVolume(row.volume24h)}</td>
                     <td className="px-4 py-3 font-mono text-zinc-400">{row.timeframe}</td>
-                    <td className="max-w-md px-4 py-3 text-xs text-zinc-500">
-                      {row.matchedConditions.join(" · ") || "—"}
+                    <td className="max-w-md px-4 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {row.matchedConditions.length > 0 ? (
+                          row.matchedConditions.map((condition) => (
+                            <span
+                              key={condition.nodeId}
+                              className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[11px] text-emerald-200"
+                              title={[
+                                condition.leftValue !== undefined ? `L: ${condition.leftValue}` : null,
+                                condition.rightValue !== undefined ? `R: ${condition.rightValue}` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            >
+                              {condition.label}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-zinc-500">—</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

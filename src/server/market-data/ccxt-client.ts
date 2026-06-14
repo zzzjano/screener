@@ -181,7 +181,16 @@ export function fetchHistoricalCandlesLimited(
   return ohlcvLimit(() => fetchHistoricalCandles(symbol, timeframe, limit, session));
 }
 
-export async function fetchLinearTickerMap(session?: CcxtMarketSession): Promise<Map<string, { price: number; volume24h: number }>> {
+export interface LinearTickerSnapshot {
+  price: number;
+  volume24h: number;
+  change24hPct: number | null;
+  fundingRate: number | null;
+}
+
+export async function fetchLinearTickerMap(
+  session?: CcxtMarketSession,
+): Promise<Map<string, LinearTickerSnapshot>> {
   const activeSession = session ?? (await createCcxtMarketSession());
   logger.info("CCXT fetchTickers...");
   const startedAt = Date.now();
@@ -191,7 +200,7 @@ export async function fetchLinearTickerMap(session?: CcxtMarketSession): Promise
     durationMs: Date.now() - startedAt,
   });
 
-  const map = new Map<string, { price: number; volume24h: number }>();
+  const map = new Map<string, LinearTickerSnapshot>();
 
   for (const [tickerKey, ticker] of Object.entries(tickers) as [string, Ticker][]) {
     const ccxtSymbol =
@@ -203,10 +212,33 @@ export async function fetchLinearTickerMap(session?: CcxtMarketSession): Promise
     map.set(compact, {
       price: Number(ticker.last ?? ticker.close ?? 0),
       volume24h: Number(ticker.quoteVolume ?? ticker.baseVolume ?? 0),
+      change24hPct: readTickerChangePercent(ticker),
+      fundingRate: readTickerNumber(ticker, ["fundingRate"]),
     });
   }
 
   return map;
+}
+
+function readTickerChangePercent(ticker: Ticker): number | null {
+  const normalized = readTickerNumber(ticker, ["percentage"]);
+  if (normalized !== null) return normalized;
+
+  const rawRatio = readTickerNumber(ticker, ["change24hPcnt", "price24hPcnt"]);
+  return rawRatio === null ? null : rawRatio * 100;
+}
+
+function readTickerNumber(ticker: Ticker, keys: string[]): number | null {
+  const record = ticker as unknown as Record<string, unknown>;
+  const info = (record.info ?? {}) as Record<string, unknown>;
+
+  for (const key of keys) {
+    const value = record[key] ?? info[key];
+    const parsed = typeof value === "string" || typeof value === "number" ? Number(value) : NaN;
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return null;
 }
 
 function resolveTickerUnifiedSymbol(exchange: bybit, tickerKey: string): string | null {

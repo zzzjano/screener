@@ -4,17 +4,13 @@ import type { RuleEvaluationResult, RuleEvaluationSnapshot } from "../rules/eval
 import { getPriceFromCandles } from "../indicators/indicator-types";
 import type { Candle } from "../indicators/indicator-types";
 import type { IndicatorExecutionEngine } from "../indicators/indicator-execution-engine";
+import type { LinearTickerSnapshot } from "../market-data/ccxt-client";
 import { getConditionDataCost, sortChildrenByCost } from "./scan-planner";
-
-export interface TickerSnapshot {
-  price: number;
-  volume24h: number;
-}
 
 export interface ScanEvalContext {
   symbol: string;
   marketType: string;
-  ticker?: TickerSnapshot;
+  ticker?: LinearTickerSnapshot;
   isTickerOnlyScan: boolean;
   candlesByTf: Map<string, Candle[]>;
   loadCandles: (timeframe: string) => Promise<Candle[]>;
