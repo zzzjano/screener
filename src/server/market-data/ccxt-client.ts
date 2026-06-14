@@ -49,6 +49,7 @@ export async function ensureMarketsLoaded(exchange: bybit = getCcxtBybit()): Pro
 export interface CcxtMarketSession {
   exchange: bybit;
   ccxtSymbolByCompact: Map<string, string>;
+  ccxtSymbolByMarketId: Map<string, string>;
 }
 
 /** Single loadMarkets + compact symbol index for batch scans. */
@@ -57,11 +58,16 @@ export async function createCcxtMarketSession(quoteAsset = "USDT"): Promise<Ccxt
   await ensureMarketsLoaded(exchange);
 
   const ccxtSymbolByCompact = new Map<string, string>();
+  const ccxtSymbolByMarketId = new Map<string, string>();
   for (const entry of listLinearUsdtMarkets(exchange, quoteAsset)) {
     ccxtSymbolByCompact.set(entry.compact, entry.ccxtSymbol);
+    const marketId = entry.market?.id;
+    if (marketId) {
+      ccxtSymbolByMarketId.set(marketId.toUpperCase(), entry.ccxtSymbol);
+    }
   }
 
-  return { exchange, ccxtSymbolByCompact };
+  return { exchange, ccxtSymbolByCompact, ccxtSymbolByMarketId };
 }
 
 /** BTC/USDT:USDT -> BTCUSDT */
@@ -85,12 +91,12 @@ export function resolveCcxtLinearSymbol(exchange: bybit, input: string): string 
 
   if (input.includes("/")) {
     const withSuffix = input.includes(":") ? input : `${input}:USDT`;
-    if (markets[withSuffix]?.active) return withSuffix;
-    if (markets[input]?.active) return input;
+    if (isUsdtLinearSwapMarket(markets[withSuffix])) return withSuffix;
+    if (isUsdtLinearSwapMarket(markets[input])) return input;
   }
 
   for (const [ccxtSymbol, market] of Object.entries(markets)) {
-    if (!market?.linear || !market.active) continue;
+    if (!isUsdtLinearSwapMarket(market)) continue;
     if (toCompactSymbol(ccxtSymbol) === compact) {
       return ccxtSymbol;
     }
@@ -99,10 +105,23 @@ export function resolveCcxtLinearSymbol(exchange: bybit, input: string): string 
   if (compact.endsWith("USDT")) {
     const base = compact.slice(0, -4);
     const candidate = `${base}/USDT:USDT`;
-    if (markets[candidate]) return candidate;
+    if (isUsdtLinearSwapMarket(markets[candidate])) return candidate;
   }
 
   return null;
+}
+
+export function isUsdtLinearSwapMarket(
+  market: Market | undefined,
+  quoteAsset = "USDT",
+): market is Market {
+  return Boolean(
+    market?.active &&
+      market.linear === true &&
+      market.swap === true &&
+      market.settle === quoteAsset &&
+      market.quote === quoteAsset,
+  );
 }
 
 export function listLinearUsdtMarkets(
@@ -111,11 +130,15 @@ export function listLinearUsdtMarkets(
 ): Array<{ compact: string; ccxtSymbol: string; market: Market }> {
   const entries: Array<{ compact: string; ccxtSymbol: string; market: Market }> = [];
 
-  for (const market of Object.values(exchange.markets ?? {})) {
-    if (!market?.linear || !market.active || market.quote !== quoteAsset) continue;
+  const markets = Object.values(exchange.markets ?? {}) as Array<Market | undefined>;
+
+  for (const market of markets) {
+    if (!isUsdtLinearSwapMarket(market, quoteAsset)) continue;
+    const symbol = market?.symbol;
+    if (!symbol) continue;
     entries.push({
-      compact: toCompactSymbol(market.symbol),
-      ccxtSymbol: market.symbol,
+      compact: toCompactSymbol(symbol),
+      ccxtSymbol: symbol,
       market,
     });
   }
@@ -170,8 +193,12 @@ export async function fetchLinearTickerMap(session?: CcxtMarketSession): Promise
 
   const map = new Map<string, { price: number; volume24h: number }>();
 
-  for (const [ccxtSymbol, ticker] of Object.entries(tickers) as [string, Ticker][]) {
-    if (!ccxtSymbol.endsWith(":USDT")) continue;
+  for (const [tickerKey, ticker] of Object.entries(tickers) as [string, Ticker][]) {
+    const ccxtSymbol =
+      activeSession.ccxtSymbolByMarketId.get(tickerKey.toUpperCase()) ??
+      resolveTickerUnifiedSymbol(activeSession.exchange, tickerKey);
+
+    if (!ccxtSymbol) continue;
     const compact = toCompactSymbol(ccxtSymbol);
     map.set(compact, {
       price: Number(ticker.last ?? ticker.close ?? 0),
@@ -180,4 +207,10 @@ export async function fetchLinearTickerMap(session?: CcxtMarketSession): Promise
   }
 
   return map;
+}
+
+function resolveTickerUnifiedSymbol(exchange: bybit, tickerKey: string): string | null {
+  if (!tickerKey.includes("/")) return null;
+  const market = exchange.markets?.[tickerKey];
+  return isUsdtLinearSwapMarket(market) ? (market?.symbol ?? null) : null;
 }
