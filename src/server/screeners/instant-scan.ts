@@ -3,11 +3,13 @@ import { evaluateRuleTree } from "../rules/evaluator";
 import { buildEvaluationContext } from "../rules/evaluation-context";
 import { compileDependencies, validateRuleTree } from "../rules/validator";
 import {
+  createCcxtMarketSession,
   fetchHistoricalCandles,
   fetchLinearTickerMap,
-  listActiveLinearCompactSymbols,
+  type CcxtMarketSession,
 } from "../market-data/ccxt-client";
 import { ccxtOhlcvToCandle } from "../market-data/rolling-window-store";
+import { computeScanCandleLimit } from "./scan-candle-limit";
 import { logger } from "@/src/lib/logger";
 import type { Candle } from "../indicators/indicator-types";
 
@@ -32,7 +34,8 @@ export interface InstantScanOptions {
   marketType?: string;
 }
 
-const DEFAULT_CONCURRENCY = 8;
+const DEFAULT_CONCURRENCY = 12;
+const PROGRESS_LOG_EVERY = 50;
 
 export async function runInstantScan(
   input: unknown,
@@ -43,13 +46,26 @@ export async function runInstantScan(
   const deps = compileDependencies(tree, []);
   const timeframes = deps.timeframes.length > 0 ? deps.timeframes : ["15m"];
   const primaryTimeframe = timeframes[0];
+  const candleLimit = computeScanCandleLimit(tree, deps);
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   const marketType = options.marketType ?? "LINEAR";
 
-  const symbols = await listActiveLinearCompactSymbols(options.quoteAsset ?? "USDT");
-  const tickerMap = await fetchLinearTickerMap();
+  logger.info("Instant scan start", {
+    timeframes,
+    candleLimit,
+    concurrency,
+    indicatorCount: deps.indicators.length,
+  });
+
+  const session = await createCcxtMarketSession(options.quoteAsset ?? "USDT");
+  const symbols = Array.from(session.ccxtSymbolByCompact.keys()).sort();
+  const tickerMap = await fetchLinearTickerMap(session);
+
+  logger.info("Instant scan - skanowanie symboli", { total: symbols.length });
 
   const results: InstantScanMatch[] = [];
+  let processed = 0;
+  let skipped = 0;
 
   for (let index = 0; index < symbols.length; index += concurrency) {
     const chunk = symbols.slice(index, index + concurrency);
@@ -61,14 +77,31 @@ export async function runInstantScan(
           timeframes,
           primaryTimeframe,
           marketType,
-          requiredBars: deps.maxWarmupBars,
+          candleLimit,
           tickerMap,
+          session,
         }),
       ),
     );
 
     for (const match of chunkResults) {
-      if (match) results.push(match);
+      processed += 1;
+      if (match) {
+        results.push(match);
+      } else {
+        skipped += 1;
+      }
+    }
+
+    const done = Math.min(index + concurrency, symbols.length);
+    if (done % PROGRESS_LOG_EVERY === 0 || done === symbols.length) {
+      logger.info("Instant scan postęp", {
+        done,
+        total: symbols.length,
+        matched: results.length,
+        skipped,
+        elapsedMs: Date.now() - startedAt,
+      });
     }
   }
 
@@ -76,6 +109,7 @@ export async function runInstantScan(
   logger.info("Instant scan zakończony", {
     scanned: symbols.length,
     matched: results.length,
+    skipped,
     durationMs,
   });
 
@@ -93,22 +127,24 @@ async function scanSymbol({
   timeframes,
   primaryTimeframe,
   marketType,
-  requiredBars,
+  candleLimit,
   tickerMap,
+  session,
 }: {
   symbol: string;
   tree: RuleTree;
   timeframes: string[];
   primaryTimeframe: string;
   marketType: string;
-  requiredBars: number;
+  candleLimit: number;
   tickerMap: Map<string, { price: number; volume24h: number }>;
+  session: CcxtMarketSession;
 }): Promise<InstantScanMatch | null> {
   try {
     const candlesByTf = new Map<string, Candle[]>();
 
     for (const timeframe of timeframes) {
-      const rows = await fetchHistoricalCandles(symbol, timeframe, requiredBars);
+      const rows = await fetchHistoricalCandles(symbol, timeframe, candleLimit, session);
       const candles = rows.map(ccxtOhlcvToCandle);
       if (candles.length === 0) return null;
       candlesByTf.set(timeframe, candles);

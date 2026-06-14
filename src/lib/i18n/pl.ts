@@ -61,6 +61,7 @@ export const pl = {
     scanned: "Przeskanowano",
     matched: "Dopasowania",
     duration: "Czas skanowania",
+    scanHint: "Skanowanie całego rynku może potrwać 1–3 minuty. Logi postępu są w kontenerze web, nie worker.",
   },
   queryBuilder: {
     condition: "Warunek",

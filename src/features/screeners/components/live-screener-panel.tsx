@@ -67,6 +67,7 @@ export function LiveScreenerPanel() {
         <Button type="button" onClick={handleScan} disabled={loading}>
           {loading ? pl.liveScreener.scanning : pl.liveScreener.scanMarket}
         </Button>
+        <p className="text-xs text-zinc-500">{pl.liveScreener.scanHint}</p>
         {result && (
           <p className="text-sm text-zinc-400">
             {pl.liveScreener.scanned}: {result.scanned} · {pl.liveScreener.matched}: {result.matched} ·{" "}
