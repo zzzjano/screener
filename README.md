@@ -39,12 +39,20 @@ docker compose up -d --build
 docker compose run --rm worker npm run db:seed
 ```
 
-Przy starcie serwis `migrate` (one-shot) uruchamia `prisma migrate deploy` przed `web` i `worker`.
+Przy starcie serwis `migrate` (one-shot) uruchamia `docker/migrate.sh` przed `web` i `worker`.
+Skrypt odpala `prisma migrate deploy`, a dla starszej bazy utworzonej przez `db push`
+oznacza migrację początkową jako już zastosowaną.
 
 Aplikacja: `http://localhost:3011` (domyślnie `WEB_PORT=3011` w `.env` lub compose).
 
 W `.env` ustaw hosty `postgres` i `redis` (nie `localhost`) — Docker Compose przekazuje ten plik
 bezpośrednio do kontenerów (`env_file: .env`), bez nadpisywania w compose.
+
+Podgląd migracji:
+
+```bash
+docker compose logs migrate
+```
 
 Przy `npm run dev` na hoście (bez Dockera) zmień w `.env` na `localhost:5432` i `localhost:6379`.
 

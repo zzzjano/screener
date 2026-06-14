@@ -1,8 +1,12 @@
 FROM node:20-alpine
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN apk add --no-cache openssl
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY . .
+ENV NODE_ENV=production
+COPY prisma ./prisma
 RUN npx prisma generate
+COPY . .
+RUN chmod +x ./docker/migrate.sh
 CMD ["npm", "run", "worker"]
