@@ -57,13 +57,18 @@ export function listLinearUsdtMarkets(
   exchange: bybit,
   quoteAsset = "USDT",
 ): Array<{ compact: string; ccxtSymbol: string; market: Market }> {
-  return Object.values(exchange.markets)
-    .filter((market): market is Market => Boolean(market?.linear && market.active && market.quote === quoteAsset))
-    .map((market) => ({
+  const entries: Array<{ compact: string; ccxtSymbol: string; market: Market }> = [];
+
+  for (const market of Object.values(exchange.markets)) {
+    if (!market?.linear || !market.active || market.quote !== quoteAsset) continue;
+    entries.push({
       compact: toCompactSymbol(market.symbol),
       ccxtSymbol: market.symbol,
       market,
-    }));
+    });
+  }
+
+  return entries;
 }
 
 export async function listActiveLinearCompactSymbols(quoteAsset = "USDT"): Promise<string[]> {
