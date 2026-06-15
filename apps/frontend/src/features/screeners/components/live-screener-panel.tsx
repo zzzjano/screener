@@ -18,7 +18,7 @@ export function LiveScreenerPanel() {
   const scanMutation = useMutation({
     mutationKey: ["screeners", "live"],
     mutationFn: async (): Promise<InstantScanResult> => {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api";
       const response = await fetch(`${apiUrl}/screeners/live`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

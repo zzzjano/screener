@@ -44,18 +44,26 @@ export function MatchesList({ matches }: { matches: ScreenerMatch[] }) {
     return <p className="text-sm text-zinc-500">{pl.screener.noMatches}</p>;
   }
   return (
-    <ul className="space-y-2">
-      {matches.map((match) => (
-        <li key={match.id} className="rounded-lg border border-zinc-800 px-3 py-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-zinc-200">{match.symbol} · {match.timeframe}</span>
-            <Badge tone={match.matched ? "success" : "default"}>
-              {match.matched ? "TAK" : "NIE"}
-            </Badge>
-          </div>
-          <p className="text-xs text-zinc-500">{new Date(match.createdAt).toLocaleString("pl-PL")}</p>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-4">
+      <p className="text-xs text-zinc-400">
+        Poniższa lista pokazuje historię skanowania poszczególnych monet po zamknięciu świecy. 
+        Sygnał pojawia się tylko wtedy, gdy w danej minucie spełnione są <b>wszystkie</b> reguły screenera.
+      </p>
+      <ul className="space-y-2">
+        {matches.map((match) => (
+          <li key={match.id} className="rounded-lg border border-[#2b3139] bg-[#11161c] px-3 py-2.5 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[#eaecef]">{match.symbol} <span className="text-[#848e9c]">· {match.timeframe}</span></span>
+              <Badge tone={match.matched ? "success" : "default"}>
+                {match.matched ? "Warunki spełnione (Sygnał)" : "Brak sygnału (Odrzucone)"}
+              </Badge>
+            </div>
+            <p className="mt-1 text-xs text-[#848e9c]">
+              Czas sprawdzenia: {new Date(match.createdAt).toLocaleString("pl-PL")}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
