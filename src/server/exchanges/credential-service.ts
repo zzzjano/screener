@@ -1,4 +1,4 @@
-import { ApiKeyStatus } from "@prisma/client";
+import { ApiKeyStatus, MarketType, Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/prisma";
 import {
   credentialAad,
@@ -6,9 +6,14 @@ import {
   encryptSecret,
   fingerprintApiKey,
 } from "../security/encryption";
-import { fetchPrivatePortfolioSnapshot, type PrivateBybitCredentials } from "./bybit-private-client";
+import {
+  fetchPrivatePortfolioSnapshot,
+  type NormalizedPortfolioSummary,
+  type NormalizedPrivatePosition,
+  type PrivateBybitCredentials,
+} from "./bybit-private-client";
 import { redactCredentialError } from "../security/redaction";
-import { clearCredentialPortfolioCache } from "../portfolio/portfolio-cache";
+import { clearCredentialPortfolioCache, writePortfolioCache } from "../portfolio/portfolio-cache";
 
 export interface CredentialMetadata {
   id: string;
@@ -31,7 +36,7 @@ export async function createBybitCredential(input: {
   const apiSecret = input.apiSecret.trim();
   const keyFingerprint = fingerprintApiKey(apiKey);
 
-  await fetchPrivatePortfolioSnapshot({ apiKey, apiSecret });
+  const snapshot = await fetchPrivatePortfolioSnapshot({ apiKey, apiSecret });
 
   const encryptedApiKey = encryptSecret(apiKey, credentialAad(input.userId, "bybit", "apiKey"));
   const encryptedApiSecret = encryptSecret(apiSecret, credentialAad(input.userId, "bybit", "apiSecret"));
@@ -71,6 +76,15 @@ export async function createBybitCredential(input: {
       lastValidatedAt: new Date(),
     },
   });
+
+  await writePortfolioCache({
+    userId: input.userId,
+    credentialId: credential.id,
+    summary: snapshot.balance,
+    positions: snapshot.positions,
+  });
+  await persistInitialPortfolioSnapshot(input.userId, credential.id, snapshot.balance);
+  await persistInitialPositionSnapshots(input.userId, credential.id, snapshot.positions);
 
   return toMetadata(credential);
 }
@@ -160,4 +174,58 @@ function toMetadata(row: {
     lastError: row.lastError,
     createdAt: row.createdAt,
   };
+}
+
+async function persistInitialPortfolioSnapshot(
+  userId: string,
+  credentialId: string,
+  summary: NormalizedPortfolioSummary,
+): Promise<void> {
+  await prisma.portfolioSnapshot.create({
+    data: {
+      userId,
+      credentialId,
+      exchange: "bybit",
+      accountType: summary.accountType,
+      totalEquity: decimalOrNull(summary.totalEquity),
+      availableBalance: decimalOrNull(summary.availableBalance),
+      maintenanceMargin: decimalOrNull(summary.maintenanceMargin),
+      initialMargin: decimalOrNull(summary.initialMargin),
+      raw: summary.raw as Prisma.InputJsonValue,
+    },
+  });
+}
+
+async function persistInitialPositionSnapshots(
+  userId: string,
+  credentialId: string,
+  positions: NormalizedPrivatePosition[],
+): Promise<void> {
+  if (positions.length === 0) return;
+  await prisma.positionSnapshot.createMany({
+    data: positions.map((position) => ({
+      userId,
+      credentialId,
+      exchange: "bybit",
+      marketType: MarketType.LINEAR,
+      symbol: position.symbol,
+      side: position.side,
+      contracts: decimalOrNull(position.contracts),
+      entryPrice: decimalOrNull(position.entryPrice),
+      markPrice: decimalOrNull(position.markPrice),
+      notional: decimalOrNull(position.notional),
+      leverage: decimalOrNull(position.leverage),
+      unrealizedPnl: decimalOrNull(position.unrealizedPnl),
+      pnlPct: decimalOrNull(position.pnlPct),
+      liquidationPrice: decimalOrNull(position.liquidationPrice),
+      marginMode: position.marginMode,
+      raw: position.raw as Prisma.InputJsonValue,
+    })),
+  });
+}
+
+function decimalOrNull(value: number | null | undefined): Prisma.Decimal | null {
+  return value === null || value === undefined || !Number.isFinite(value)
+    ? null
+    : new Prisma.Decimal(value);
 }
