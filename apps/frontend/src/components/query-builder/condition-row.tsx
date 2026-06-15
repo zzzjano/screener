@@ -1,6 +1,6 @@
 "use client";
 
-import type { Comparator, ConditionNode, Operand } from "@screener/shared-types";
+import type { Comparator, ConditionNode, Operand, Timeframe } from "@screener/shared-types";
 import { pl } from "@/src/lib/i18n/pl";
 import { Button, Input, Select } from "@/src/components/ui";
 import { useBuilderStore } from "@/src/features/screeners/components/builder-store";
@@ -190,7 +190,7 @@ function OperandEditor({
               onChange={(e) =>
                 onChange({
                   ...operand,
-                  indicator: { ...operand.indicator, timeframe: e.target.value },
+                  indicator: { ...operand.indicator, timeframe: e.target.value as Timeframe },
                 })
               }
               className="min-w-[72px] flex-1"
@@ -244,7 +244,7 @@ function OperandEditor({
             <Select
               value={timeframe}
               onChange={(e) =>
-                onChange(createDerivativeOperand(getDerivativeField(operand), e.target.value))
+                onChange(createDerivativeOperand(getDerivativeField(operand), e.target.value as Timeframe))
               }
               className="min-w-[72px] flex-1"
             >
@@ -292,7 +292,7 @@ function OperandEditor({
         <Select
           value={timeframe}
           onChange={(e) => {
-            onChange(createMarketOperand(getMarketField(operand), e.target.value));
+            onChange(createMarketOperand(getMarketField(operand), e.target.value as Timeframe));
           }}
           className="text-xs"
         >

@@ -1,4 +1,4 @@
-import type { IndicatorConfigAst, Operand } from "@screener/shared-types";
+import type { IndicatorConfigAst, Operand, Timeframe } from "@screener/shared-types";
 
 export type UiOperandCategory = "market" | "indicator" | "derivative" | "sector" | "private" | "constant";
 export type UiMarketField = "close" | "volume" | "volume24h";
@@ -39,17 +39,17 @@ export function createMarketOperand(field: UiMarketField, timeframe: string): Op
     return { kind: "TICKER_VOLUME" };
   }
   if (field === "volume") {
-    return { kind: "VOLUME", timeframe };
+    return { kind: "VOLUME", timeframe: timeframe as Timeframe };
   }
-  return { kind: "PRICE", source: "CLOSE", timeframe };
+  return { kind: "PRICE", source: "CLOSE", timeframe: timeframe as Timeframe };
 }
 
 export function createDerivativeOperand(field: UiDerivativeField, timeframe: string): Operand {
   if (field === "fundingRate") return { kind: "FUNDING_RATE" };
   if (field === "openInterest") {
-    return { kind: "OPEN_INTEREST", timeframe, transform: "PERCENT_CHANGE", lookbackBars: 1 };
+    return { kind: "OPEN_INTEREST", timeframe: timeframe as Timeframe, transform: "PERCENT_CHANGE", lookbackBars: 1 };
   }
-  return { kind: "LIQUIDATION", side: "NET", timeframe, transform: "SUM" };
+  return { kind: "LIQUIDATION", side: "NET", timeframe: timeframe as Timeframe, transform: "SUM" };
 }
 
 export function createSectorOperand(tags: string[] = ["AI"]): Operand {
@@ -78,7 +78,7 @@ export function createIndicatorOperand(
     indicator: {
       id: indicatorId ?? newIndicatorId(),
       kind,
-      timeframe,
+      timeframe: timeframe as Timeframe,
       source: "CLOSE",
       params: defaultIndicatorParams(kind),
     },
