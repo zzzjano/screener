@@ -116,12 +116,17 @@ export function isUsdtLinearSwapMarket(
   market: Market | undefined,
   quoteAsset = "USDT",
 ): market is Market {
+  if (!market) return false;
+  const isSwap = market.swap === true || market.type === "swap";
+  const hasNoHyphen = market.symbol && !market.symbol.includes("-");
+  
   return Boolean(
-    market?.active &&
+    market.active &&
       market.linear === true &&
-      market.swap === true &&
+      isSwap &&
       market.settle === quoteAsset &&
-      market.quote === quoteAsset,
+      market.quote === quoteAsset &&
+      hasNoHyphen
   );
 }
 
