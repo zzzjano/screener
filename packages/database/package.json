@@ -2,14 +2,16 @@
   "name": "@screener/database",
   "version": "1.0.0",
   "private": true,
-  "main": "index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "prisma generate"
+    "build": "prisma generate && tsc"
   },
   "dependencies": {
     "@prisma/client": "6.19.0"
   },
   "devDependencies": {
-    "prisma": "6.19.0"
+    "prisma": "6.19.0",
+    "typescript": "^5"
   }
 }
