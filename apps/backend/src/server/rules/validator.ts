@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { ruleTreeSchema, type RuleNode, type RuleTree, type ScreenerDependency, type IndicatorConfigAst } from "./ast";
+import { VALID_TIMEFRAMES, ruleTreeSchema, type RuleNode, type RuleTree, type ScreenerDependency, type IndicatorConfigAst } from "./ast";
 import { getIndicatorWarmup } from "../indicators/indicator-registry";
 
 export function validateRuleTree(input: unknown): RuleTree {
@@ -15,12 +15,14 @@ function collectFromOperand(
   timeframes: Set<string>,
   indicators: Map<string, IndicatorConfigAst>,
 ): void {
-  if ("timeframe" in operand && operand.timeframe) {
+  if ("timeframe" in operand && typeof operand.timeframe === "string" && VALID_TIMEFRAMES.includes(operand.timeframe as any)) {
     timeframes.add(operand.timeframe);
   }
   if (operand.kind === "INDICATOR" && operand.indicator) {
     indicators.set(operand.indicator.id, operand.indicator);
-    timeframes.add(operand.indicator.timeframe);
+    if (VALID_TIMEFRAMES.includes(operand.indicator.timeframe as any)) {
+      timeframes.add(operand.indicator.timeframe);
+    }
   }
 }
 

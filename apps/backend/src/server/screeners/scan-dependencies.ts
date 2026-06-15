@@ -1,4 +1,4 @@
-import type { Comparator, IndicatorConfigAst, Operand, RuleNode, RuleTree } from "../rules/ast";
+import { VALID_TIMEFRAMES, type Comparator, type IndicatorConfigAst, type Operand, type RuleNode, type RuleTree } from "../rules/ast";
 import { getIndicatorWarmup } from "../indicators/indicator-registry";
 
 export interface ScanDependencyGraph {
@@ -24,12 +24,14 @@ function collectOperandTimeframes(
   timeframes: Set<string>,
   indicators: Map<string, IndicatorConfigAst>,
 ): void {
-  if ("timeframe" in operand && operand.timeframe) {
+  if ("timeframe" in operand && typeof operand.timeframe === "string" && VALID_TIMEFRAMES.includes(operand.timeframe as any)) {
     timeframes.add(operand.timeframe);
   }
   if (operand.kind === "INDICATOR" && operand.indicator) {
     indicators.set(operand.indicator.id, operand.indicator);
-    timeframes.add(operand.indicator.timeframe);
+    if (VALID_TIMEFRAMES.includes(operand.indicator.timeframe as any)) {
+      timeframes.add(operand.indicator.timeframe);
+    }
   }
 }
 

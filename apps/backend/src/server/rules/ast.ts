@@ -2,6 +2,10 @@ import { z } from "zod";
 
 export const AST_VERSION = 1;
 
+export const timeframeSchema = z.enum(["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"]);
+export type Timeframe = z.infer<typeof timeframeSchema>;
+export const VALID_TIMEFRAMES = timeframeSchema.options;
+
 export const comparatorSchema = z.enum([
   "LT",
   "LTE",
@@ -62,7 +66,7 @@ export const indicatorKindSchema = z.enum([
 export const indicatorConfigSchema = z.object({
   id: z.string(),
   kind: indicatorKindSchema,
-  timeframe: z.string(),
+  timeframe: timeframeSchema,
   source: priceSourceSchema.default("CLOSE"),
   params: z.record(z.string(), z.unknown()).default({}),
   outputField: z.string().optional(),
@@ -72,11 +76,11 @@ export const operandSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("PRICE"),
     source: priceSourceSchema.default("CLOSE"),
-    timeframe: z.string(),
+    timeframe: timeframeSchema,
   }),
   z.object({
     kind: z.literal("VOLUME"),
-    timeframe: z.string(),
+    timeframe: timeframeSchema,
   }),
   z.object({
     kind: z.literal("TICKER_VOLUME"),
@@ -84,7 +88,7 @@ export const operandSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("MARKET_FIELD"),
     field: z.string(),
-    timeframe: z.string(),
+    timeframe: timeframeSchema,
   }),
   z.object({
     kind: z.literal("INDICATOR"),
@@ -97,7 +101,7 @@ export const operandSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("OPEN_INTEREST"),
-    timeframe: z.string().default("15m"),
+    timeframe: timeframeSchema.default("15m"),
     transform: z.enum(["CURRENT", "PERCENT_CHANGE"]).default("CURRENT"),
     lookbackBars: z.number().int().positive().optional(),
   }),
@@ -107,7 +111,7 @@ export const operandSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("LIQUIDATION"),
     side: z.enum(["BUY", "SELL", "NET"]),
-    timeframe: z.string(),
+    timeframe: timeframeSchema,
     transform: z.enum(["SUM", "PERCENT_CHANGE"]).default("SUM"),
   }),
   z.object({
