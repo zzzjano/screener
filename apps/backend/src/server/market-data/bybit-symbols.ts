@@ -10,7 +10,7 @@ export async function syncBybitMarkets(quoteAsset = "USDT"): Promise<number> {
   let count = 0;
 
   for (const market of Object.values(markets) as Market[]) {
-    if (!isUsdtLinearSwapMarket(market, quoteAsset)) continue;
+    if (!market || !isUsdtLinearSwapMarket(market, quoteAsset) || !market.symbol || !market.base || !market.quote) continue;
 
     const symbol = toCompactSymbol(market.symbol);
     await prisma.market.upsert({
