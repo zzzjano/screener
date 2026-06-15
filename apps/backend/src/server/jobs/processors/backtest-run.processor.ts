@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
+import { getBullMqConnection } from "../../../lib/bullmq";
 import { runBacktest } from "../../backtesting/backtest-engine";
 
 interface BacktestRunJob {

@@ -18,7 +18,7 @@ import { formatMatchedConditions, type MatchedConditionBadge } from "./match-for
 import { getLiquidationMetric } from "../derivatives/liquidation-aggregator";
 import { getOpenInterestChange, getTickerSnapshot } from "../derivatives/redis-store";
 import { timeframeToMs } from "../market-data/timeframe";
-import { prisma } from "@/src/lib/prisma";
+import { prisma } from "../../lib/prisma";
 import { MarketType } from "@prisma/client";
 import {
   evaluateRuleTreeForScan,
@@ -26,7 +26,7 @@ import {
   type ScanEvalContext,
 } from "./scan-evaluator";
 import { resolveScanSymbols } from "./scan-symbols";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../lib/logger";
 import type { Candle } from "../indicators/indicator-types";
 
 export interface InstantScanMatch {

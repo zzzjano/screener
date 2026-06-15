@@ -1,4 +1,4 @@
-import { getRedis } from "@/src/lib/redis";
+import { getRedis } from "../../lib/redis";
 import { getIndicatorValue, indicatorCacheKey } from "./indicator-registry";
 import type { IndicatorConfigAst } from "../rules/ast";
 import type { RollingCandleWindow } from "./indicator-types";

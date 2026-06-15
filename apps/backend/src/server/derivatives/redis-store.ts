@@ -1,4 +1,4 @@
-import { getRedis } from "@/src/lib/redis";
+import { getRedis } from "../../lib/redis";
 import { timeframeToMs } from "../market-data/timeframe";
 import type { DerivativeTickerSnapshot, LiquidationAggregate, OpenInterestChange } from "./types";
 import { buildOpenInterestChange } from "./normalizers";

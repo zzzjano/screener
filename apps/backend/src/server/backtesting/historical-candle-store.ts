@@ -1,5 +1,5 @@
 import { MarketType, Prisma } from "@prisma/client";
-import { prisma } from "@/src/lib/prisma";
+import { prisma } from "../../lib/prisma";
 import type { Candle } from "../indicators/indicator-types";
 
 export async function upsertHistoricalCandles(input: {

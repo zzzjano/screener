@@ -1,5 +1,5 @@
-import { env } from "@/src/lib/env";
-import { logger } from "@/src/lib/logger";
+import { env } from "../../lib/env";
+import { logger } from "../../lib/logger";
 
 export interface TelegramInlineButton {
   text: string;

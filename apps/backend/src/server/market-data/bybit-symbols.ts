@@ -1,7 +1,7 @@
 import { getCcxtBybit, normalizeCompactSymbol, toCompactSymbol } from "./ccxt-client";
-import { prisma } from "@/src/lib/prisma";
+import { prisma } from "../../lib/prisma";
 import { MarketType } from "@prisma/client";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../lib/logger";
 import type { Market } from "ccxt";
 
 export async function syncBybitMarkets(quoteAsset = "USDT"): Promise<number> {

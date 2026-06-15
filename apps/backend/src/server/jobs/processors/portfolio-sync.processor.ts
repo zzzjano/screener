@@ -1,7 +1,7 @@
 import { ApiKeyStatus } from "@prisma/client";
 import { Worker } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
-import { prisma } from "@/src/lib/prisma";
+import { getBullMqConnection } from "../../../lib/bullmq";
+import { prisma } from "../../../lib/prisma";
 import { syncPortfolioCredential } from "../../portfolio/portfolio-sync";
 
 interface PortfolioSyncJob {

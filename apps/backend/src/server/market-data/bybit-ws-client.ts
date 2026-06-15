@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../lib/logger";
 import { fromBybitInterval, toBybitInterval } from "./timeframe";
 import type { Candle } from "../indicators/indicator-types";
 import { publishMarketEvent } from "./streams/market-events";

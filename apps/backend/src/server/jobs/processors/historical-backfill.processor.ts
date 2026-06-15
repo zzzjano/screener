@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
+import { getBullMqConnection } from "../../../lib/bullmq";
 import { createCcxtMarketSession } from "../../market-data/ccxt-client";
 import { fetchHistoricalChunk } from "../../backtesting/bybit-history-client";
 import { upsertHistoricalCandles } from "../../backtesting/historical-candle-store";

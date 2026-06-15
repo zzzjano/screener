@@ -1,4 +1,4 @@
-import { getRedis } from "@/src/lib/redis";
+import { getRedis } from "../../lib/redis";
 import type { NormalizedPortfolioSummary, NormalizedPrivatePosition } from "../exchanges/bybit-private-client";
 
 const PORTFOLIO_TTL_SECONDS = 90;

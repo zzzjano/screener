@@ -1,8 +1,8 @@
 import https from "https";
 import ccxt, { type bybit, type Market, type OHLCV, type Ticker } from "ccxt";
-import { createLimit } from "@/src/lib/concurrency/limit";
+import { createLimit } from "../../lib/concurrency/limit";
 import { withRateLimitBackoff } from "./rate-limit";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../lib/logger";
 
 let exchangeInstance: any | null = null;
 let marketsLoadedAt = 0;

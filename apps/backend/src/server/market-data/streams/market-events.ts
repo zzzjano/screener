@@ -1,5 +1,5 @@
 import type { Redis } from "ioredis";
-import { getRedis } from "@/src/lib/redis";
+import { getRedis } from "../../../lib/redis";
 import type { Candle } from "../../indicators/indicator-types";
 
 export const MARKET_STREAMS = {

@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
+import { getBullMqConnection } from "../../lib/bullmq";
 import type { Candle } from "../indicators/indicator-types";
 
 export interface CandleClosedEvent {

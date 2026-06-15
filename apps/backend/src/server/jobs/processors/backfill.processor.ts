@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
+import { getBullMqConnection } from "../../../lib/bullmq";
 import { backfillRollingWindow } from "../../market-data/backfill";
 import { withRateLimitBackoff } from "../../market-data/rate-limit";
 import { getRollingWindow } from "../../market-data/rolling-window-store";

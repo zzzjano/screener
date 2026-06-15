@@ -1,4 +1,4 @@
-import { getRedis } from "@/src/lib/redis";
+import { getRedis } from "../../lib/redis";
 
 export async function isCooldownActive(
   alertId: string,

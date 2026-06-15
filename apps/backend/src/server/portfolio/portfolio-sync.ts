@@ -1,6 +1,6 @@
 import { MarketType, Prisma } from "@prisma/client";
-import { prisma } from "@/src/lib/prisma";
-import { getRedis } from "@/src/lib/redis";
+import { prisma } from "../../lib/prisma";
+import { getRedis } from "../../lib/redis";
 import { getDecryptedBybitCredential, markCredentialError } from "../exchanges/credential-service";
 import { fetchPrivatePortfolioSnapshot } from "../exchanges/bybit-private-client";
 import { writePortfolioCache } from "./portfolio-cache";

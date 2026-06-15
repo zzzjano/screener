@@ -4,7 +4,7 @@ import {
   getRollingWindow,
   setRollingWindow,
 } from "./rolling-window-store";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../lib/logger";
 
 export async function backfillRollingWindow(
   marketType: string,

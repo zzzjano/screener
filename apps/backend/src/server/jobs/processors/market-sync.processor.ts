@@ -1,7 +1,7 @@
 import { Worker, type Job } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
+import { getBullMqConnection } from "../../../lib/bullmq";
 import { syncBybitMarkets } from "../../market-data/bybit-symbols";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../../lib/logger";
 
 export function createMarketSyncWorker(): Worker {
   return new Worker(

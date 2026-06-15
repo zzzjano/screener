@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
-import { prisma } from "@/src/lib/prisma";
+import { getBullMqConnection } from "../../../lib/bullmq";
+import { prisma } from "../../../lib/prisma";
 import {
   bybitTradeButtonText,
   bybitTradeUrl,
@@ -12,7 +12,7 @@ import {
   markDeliveryFailed,
   markDeliverySent,
 } from "../../alerts/outbox";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../../lib/logger";
 
 import type { RuleEvaluationSnapshot } from "../../rules/evaluator";
 import type { MatchedConditionBadge } from "../../screeners/match-format";

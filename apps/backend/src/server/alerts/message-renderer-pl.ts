@@ -1,5 +1,5 @@
-import { pl } from "@/src/lib/i18n/pl";
-import { formatWarsawDate } from "@/src/lib/dates";
+import { pl } from "../../lib/i18n/pl";
+import { formatWarsawDate } from "../../lib/dates";
 import type { RuleEvaluationSnapshot } from "../rules/evaluator";
 import type { Candle } from "../indicators/indicator-types";
 import type { MatchedConditionBadge } from "../screeners/match-format";

@@ -1,5 +1,5 @@
 import { ApiKeyStatus, MarketType, Prisma } from "@prisma/client";
-import { prisma } from "@/src/lib/prisma";
+import { prisma } from "../../lib/prisma";
 import {
   credentialAad,
   decryptSecret,

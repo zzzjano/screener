@@ -1,4 +1,4 @@
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../lib/logger";
 
 let lastRequestAt = 0;
 let backoffMs = 0;

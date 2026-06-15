@@ -1,5 +1,5 @@
 import { MarketType } from "@prisma/client";
-import { prisma } from "@/src/lib/prisma";
+import { prisma } from "../../lib/prisma";
 import { fetchCoinGeckoMarkets } from "./coingecko-client";
 import { inferSectorTags, mapCoinGeckoIdForBybitSymbol } from "./symbol-mapper";
 

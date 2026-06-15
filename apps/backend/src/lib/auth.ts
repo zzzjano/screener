@@ -1,4 +1,4 @@
-import { prisma } from "@/src/lib/prisma";
+import { prisma } from "./prisma";
 
 const DEMO_USER_EMAIL = "demo@screener.local";
 

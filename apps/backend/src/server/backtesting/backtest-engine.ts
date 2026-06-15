@@ -1,5 +1,5 @@
 import { BacktestStatus, Prisma } from "@prisma/client";
-import { prisma } from "@/src/lib/prisma";
+import { prisma } from "../../lib/prisma";
 import { getHistoricalCandles } from "./historical-candle-store";
 import type { BacktestExitConfig, BacktestMetrics } from "./types";
 import { validateRuleTree } from "../rules/validator";

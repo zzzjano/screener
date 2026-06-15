@@ -1,6 +1,6 @@
 import { Worker, type Job } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
-import { logger } from "@/src/lib/logger";
+import { getBullMqConnection } from "../../../lib/bullmq";
+import { logger } from "../../../lib/logger";
 import { runInstantScan } from "../../screeners/instant-scan";
 
 export function createLiveScanWorker(): Worker {

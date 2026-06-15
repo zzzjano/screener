@@ -1,9 +1,9 @@
-import { getRedis } from "@/src/lib/redis";
+import { getRedis } from "../../lib/redis";
 import type { OHLCV } from "ccxt";
 import type { Candle } from "../indicators/indicator-types";
 import { ohlcvKey } from "../indicators/dependency-planner";
 import { timeframeToMs } from "./timeframe";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../lib/logger";
 
 const DEFAULT_MAX_CANDLES = 500;
 

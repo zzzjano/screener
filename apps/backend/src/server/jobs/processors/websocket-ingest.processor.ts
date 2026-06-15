@@ -1,9 +1,9 @@
 import { getBybitWsClient } from "../../market-data/bybit-ws-client";
-import { getRedis } from "@/src/lib/redis";
+import { getRedis } from "../../../lib/redis";
 import { dependencyIndexKey } from "../../indicators/dependency-planner";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../../lib/logger";
 import { Worker } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
+import { getBullMqConnection } from "../../../lib/bullmq";
 
 export async function syncWebSocketSubscriptions(): Promise<number> {
   const redis = getRedis();

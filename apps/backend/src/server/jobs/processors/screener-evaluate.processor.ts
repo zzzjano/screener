@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
-import { getBullMqConnection } from "@/src/lib/bullmq";
-import { getRedis } from "@/src/lib/redis";
-import { prisma } from "@/src/lib/prisma";
+import { getBullMqConnection } from "../../../lib/bullmq";
+import { getRedis } from "../../../lib/redis";
+import { prisma } from "../../../lib/prisma";
 import { AlertDeliveryStatus, MarketType, ScreenerStatus, TriggerPolicy, Prisma } from "@prisma/client";
 import type { CandleClosedEvent } from "../../market-data/candle-events";
 import { dependencyIndexKey } from "../../indicators/dependency-planner";
@@ -30,7 +30,7 @@ import { getActiveBybitCredentialMetadata } from "../../exchanges/credential-ser
 import { portfolioSyncQueue } from "../../market-data/candle-events";
 import { resolvePortfolioMetric, resolvePositionMetric } from "../../portfolio/portfolio-metrics";
 import { readPositionForSymbol } from "../../portfolio/portfolio-cache";
-import { logger } from "@/src/lib/logger";
+import { logger } from "../../../lib/logger";
 import type { Candle } from "../../indicators/indicator-types";
 
 export function createScreenerEvaluateWorker(): Worker {
