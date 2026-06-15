@@ -5,6 +5,7 @@ import { pl } from "@/src/lib/i18n/pl";
 import { Button } from "@/src/components/ui";
 import { useBuilderStore } from "@/src/features/screeners/components/builder-store";
 import { ConditionRow } from "./condition-row";
+import { CompactRuleBuilder } from "./compact-rule-builder";
 
 export function GroupNode({ node, depth = 0 }: { node: Extract<RuleNode, { type: "GROUP" }>; depth?: number }) {
   const addCondition = useBuilderStore((s) => s.addCondition);
@@ -50,7 +51,5 @@ function RulePreviewPl({ root }: { root: RuleNode }) {
 }
 
 export function QueryBuilder() {
-  const root = useBuilderStore((s) => s.root);
-  if (root.type !== "GROUP") return null;
-  return <GroupNode node={root} />;
+  return <CompactRuleBuilder />;
 }

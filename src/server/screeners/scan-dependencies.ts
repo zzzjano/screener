@@ -36,7 +36,16 @@ function collectOperandTimeframes(
 function operandTimeframe(operand: Operand): string | null {
   if (operand.kind === "CONSTANT") return null;
   if (operand.kind === "INDICATOR") return operand.indicator.timeframe;
-  return operand.timeframe;
+  if (
+    operand.kind === "PRICE" ||
+    operand.kind === "VOLUME" ||
+    operand.kind === "MARKET_FIELD" ||
+    operand.kind === "OPEN_INTEREST" ||
+    operand.kind === "LIQUIDATION"
+  ) {
+    return operand.timeframe;
+  }
+  return null;
 }
 
 function bumpWindow(

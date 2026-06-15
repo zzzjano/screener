@@ -135,6 +135,9 @@ export const pl = {
   telegram: {
     signalTitle: "Sygnał screenera",
     market: "Rynek",
+    currentPrice: "Cena",
+    change24h: "Zmiana 24h",
+    funding: "Funding",
     closePrice: "Cena zamknięcia",
     conditions: "Warunki",
     candleTime: "Czas świecy",

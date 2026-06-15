@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #09090b;
-  --foreground: #fafafa;
+  --background: var(--terminal-bg, #0b0e11);
+  --foreground: var(--terminal-text, #eaecef);
   --accent: #10b981;
 }
 
@@ -17,4 +17,22 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+@keyframes terminal-flash-profit {
+  0% { background-color: rgb(46 189 133 / 0.22); }
+  100% { background-color: transparent; }
+}
+
+@keyframes terminal-flash-loss {
+  0% { background-color: rgb(246 70 93 / 0.22); }
+  100% { background-color: transparent; }
+}
+
+.animate-flash-profit {
+  animation: terminal-flash-profit 900ms ease-out;
+}
+
+.animate-flash-loss {
+  animation: terminal-flash-loss 900ms ease-out;
 }

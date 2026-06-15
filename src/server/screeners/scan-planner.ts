@@ -10,7 +10,7 @@ const HISTORY_COMPARATORS = new Set<Comparator>([
   "VOLUME_SPIKE",
 ]);
 
-export type DataCost = "ticker" | "candle" | "indicator";
+export type DataCost = "ticker" | "metadata" | "private" | "derivative" | "candle" | "indicator";
 
 export interface ScanPlan {
   tree: RuleTree;
@@ -37,6 +37,30 @@ function conditionNeedsHistory(node: ConditionNode): boolean {
 
 function conditionNeedsIndicators(node: ConditionNode): boolean {
   return node.left.kind === "INDICATOR" || node.right.kind === "INDICATOR";
+}
+
+function conditionNeedsDerivative(node: ConditionNode): boolean {
+  return (
+    node.left.kind === "OPEN_INTEREST" ||
+    node.right.kind === "OPEN_INTEREST" ||
+    node.left.kind === "LIQUIDATION" ||
+    node.right.kind === "LIQUIDATION" ||
+    node.left.kind === "FUNDING_RATE" ||
+    node.right.kind === "FUNDING_RATE"
+  );
+}
+
+function conditionNeedsMetadata(node: ConditionNode): boolean {
+  return node.left.kind === "SECTOR" || node.right.kind === "SECTOR";
+}
+
+function conditionNeedsPrivateContext(node: ConditionNode): boolean {
+  return (
+    node.left.kind === "PORTFOLIO" ||
+    node.right.kind === "PORTFOLIO" ||
+    node.left.kind === "POSITION" ||
+    node.right.kind === "POSITION"
+  );
 }
 
 function conditionNeedsCandles(node: ConditionNode): boolean {
@@ -71,12 +95,22 @@ function walkUsesHistory(node: RuleNode): boolean {
 
 export function getConditionDataCost(node: ConditionNode): DataCost {
   if (conditionIsTickerOnly(node)) return "ticker";
+  if (conditionNeedsMetadata(node)) return "metadata";
+  if (conditionNeedsPrivateContext(node)) return "private";
+  if (conditionNeedsDerivative(node)) return "derivative";
   if (conditionNeedsIndicators(node)) return "indicator";
   return "candle";
 }
 
 export function sortChildrenByCost(children: RuleNode[]): RuleNode[] {
-  const costRank: Record<DataCost, number> = { ticker: 0, candle: 1, indicator: 2 };
+  const costRank: Record<DataCost, number> = {
+    metadata: 0,
+    ticker: 1,
+    private: 2,
+    derivative: 3,
+    candle: 4,
+    indicator: 5,
+  };
   return [...children].sort((a, b) => {
     const aCost = a.type === "CONDITION" ? costRank[getConditionDataCost(a)] : 1;
     const bCost = b.type === "CONDITION" ? costRank[getConditionDataCost(b)] : 1;

@@ -60,6 +60,27 @@ enum AlertDeliveryStatus {
   SKIPPED_COOLDOWN
 }
 
+enum BacktestStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum BacktestExitKind {
+  TAKE_PROFIT_STOP_LOSS
+  BARS_ELAPSED
+  EITHER
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  DISABLED
+  REVOKED
+  ERROR
+}
+
 model User {
   id                  String               @id @default(cuid())
   email               String               @unique
@@ -72,6 +93,10 @@ model User {
   screeners           Screener[]
   indicatorPresets    IndicatorPreset[]
   telegramConnections TelegramConnection[]
+  backtestRuns        BacktestRun[]
+  exchangeCredentials UserExchangeCredential[]
+  portfolioSnapshots  PortfolioSnapshot[]
+  positionSnapshots   PositionSnapshot[]
 }
 
 model TelegramConnection {
@@ -89,20 +114,24 @@ model TelegramConnection {
 }
 
 model Market {
-  id         String     @id @default(cuid())
-  exchange   String     @default("bybit")
-  type       MarketType
-  symbol     String
-  baseAsset  String
-  quoteAsset String
-  isActive   Boolean    @default(true)
-  precision  Json?
-  limits     Json?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id              String     @id @default(cuid())
+  exchange        String     @default("bybit")
+  type            MarketType
+  symbol          String
+  baseAsset       String
+  quoteAsset      String
+  isActive        Boolean    @default(true)
+  precision       Json?
+  limits          Json?
+  coingeckoId     String?
+  sectorTags      String[]   @default([])
+  sectorUpdatedAt DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   @@unique([exchange, type, symbol])
   @@index([exchange, type, isActive])
+  @@index([coingeckoId])
 }
 
 model Screener {
@@ -196,4 +225,159 @@ model AlertDelivery {
 
   @@unique([alertId, screenerMatchId])
   @@index([status, nextRetryAt])
+}
+
+model HistoricalCandle {
+  id         BigInt     @id @default(autoincrement())
+  exchange   String     @default("bybit")
+  marketType MarketType
+  symbol     String
+  timeframe  String
+  openTime   DateTime
+  closeTime  DateTime
+  open       Decimal    @db.Decimal(30, 12)
+  high       Decimal    @db.Decimal(30, 12)
+  low        Decimal    @db.Decimal(30, 12)
+  close      Decimal    @db.Decimal(30, 12)
+  volume     Decimal    @db.Decimal(30, 12)
+  turnover   Decimal?   @db.Decimal(30, 12)
+  createdAt  DateTime   @default(now())
+
+  @@unique([exchange, marketType, symbol, timeframe, openTime])
+  @@index([symbol, timeframe, openTime])
+  @@index([exchange, marketType, timeframe, openTime])
+}
+
+model DerivativeMetric {
+  id                 BigInt     @id @default(autoincrement())
+  exchange           String     @default("bybit")
+  marketType         MarketType
+  symbol             String
+  timestamp          DateTime
+  openInterest       Decimal?   @db.Decimal(30, 12)
+  openInterestValue  Decimal?   @db.Decimal(30, 12)
+  fundingRate        Decimal?   @db.Decimal(18, 12)
+  liquidationBuyQty  Decimal?   @db.Decimal(30, 12)
+  liquidationSellQty Decimal?   @db.Decimal(30, 12)
+  createdAt          DateTime   @default(now())
+
+  @@unique([exchange, marketType, symbol, timestamp])
+  @@index([symbol, timestamp])
+}
+
+model BacktestRun {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  screenerId  String?
+  name        String?
+  ruleTree    Json
+  symbols     String[]
+  timeframes  String[]
+  startTime   DateTime
+  endTime     DateTime
+  status      BacktestStatus @default(PENDING)
+  exitKind    BacktestExitKind
+  exitConfig  Json
+  metrics     Json?
+  error       String?
+  createdAt   DateTime       @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  signals     BacktestSignal[]
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+}
+
+model BacktestSignal {
+  id                         String      @id @default(cuid())
+  runId                      String
+  run                        BacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  symbol                     String
+  timeframe                  String
+  signalTime                 DateTime
+  entryPrice                 Decimal     @db.Decimal(30, 12)
+  exitTime                   DateTime?
+  exitPrice                  Decimal?    @db.Decimal(30, 12)
+  pnlPct                     Decimal?    @db.Decimal(18, 8)
+  maxAdverseExcursionPct     Decimal?    @db.Decimal(18, 8)
+  maxFavorableExcursionPct   Decimal?    @db.Decimal(18, 8)
+  snapshot                   Json
+  createdAt                  DateTime    @default(now())
+
+  @@index([runId, signalTime])
+  @@index([symbol, timeframe, signalTime])
+}
+
+model UserExchangeCredential {
+  id                  String       @id @default(cuid())
+  userId              String
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exchange            String       @default("bybit")
+  label               String?
+  apiKeyCiphertext    String
+  apiKeyIv            String
+  apiKeyAuthTag       String
+  apiSecretCiphertext String
+  apiSecretIv         String
+  apiSecretAuthTag    String
+  keyFingerprint      String
+  keyVersion          Int          @default(1)
+  status              ApiKeyStatus @default(ACTIVE)
+  lastValidatedAt     DateTime?
+  lastError           String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  portfolioSnapshots  PortfolioSnapshot[]
+  positionSnapshots   PositionSnapshot[]
+
+  @@index([userId, exchange, status])
+  @@unique([userId, exchange, keyFingerprint])
+}
+
+model PortfolioSnapshot {
+  id                String                 @id @default(cuid())
+  userId            String
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId      String
+  credential        UserExchangeCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  exchange          String                 @default("bybit")
+  accountType       String?
+  totalEquity       Decimal?               @db.Decimal(30, 12)
+  availableBalance  Decimal?               @db.Decimal(30, 12)
+  maintenanceMargin Decimal?               @db.Decimal(30, 12)
+  initialMargin     Decimal?               @db.Decimal(30, 12)
+  raw               Json
+  createdAt         DateTime               @default(now())
+
+  @@index([userId, exchange, createdAt])
+  @@index([credentialId, createdAt])
+}
+
+model PositionSnapshot {
+  id               String                 @id @default(cuid())
+  userId           String
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId     String
+  credential       UserExchangeCredential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  exchange         String                 @default("bybit")
+  marketType       MarketType             @default(LINEAR)
+  symbol           String
+  side             String
+  contracts        Decimal?               @db.Decimal(30, 12)
+  entryPrice       Decimal?               @db.Decimal(30, 12)
+  markPrice        Decimal?               @db.Decimal(30, 12)
+  notional         Decimal?               @db.Decimal(30, 12)
+  leverage         Decimal?               @db.Decimal(18, 8)
+  unrealizedPnl    Decimal?               @db.Decimal(30, 12)
+  pnlPct           Decimal?               @db.Decimal(18, 8)
+  liquidationPrice Decimal?               @db.Decimal(30, 12)
+  marginMode       String?
+  raw              Json
+  createdAt        DateTime               @default(now())
+
+  @@index([userId, symbol, createdAt])
+  @@index([userId, createdAt])
+  @@index([credentialId, createdAt])
 }

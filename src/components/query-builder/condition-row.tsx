@@ -7,20 +7,29 @@ import { useBuilderStore } from "@/src/features/screeners/components/builder-sto
 import {
   UI_COMPARATORS,
   createConstantOperand,
+  createDerivativeOperand,
   createIndicatorOperand,
   createMarketOperand,
+  createPrivateOperand,
+  createSectorOperand,
+  getDerivativeField,
   getIndicatorKind,
   getMarketField,
   getOperandCategory,
   getOperandTimeframe,
+  getPrivateField,
   updateIndicatorParams,
   type UiIndicatorKind,
+  type UiDerivativeField,
   type UiMarketField,
   type UiOperandCategory,
+  type UiPrivateField,
 } from "@/src/features/screeners/components/operand-defaults";
 
 const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
 const INDICATORS: UiIndicatorKind[] = ["RSI", "EMA", "SMA", "MACD"];
+const DERIVATIVES: UiDerivativeField[] = ["fundingRate", "openInterest", "liquidationNet"];
+const PRIVATE_FIELDS: UiPrivateField[] = ["positionPnl", "hasPosition", "positionSide", "totalEquity", "marginUsage"];
 
 interface ConditionRowProps {
   node: ConditionNode;
@@ -104,6 +113,18 @@ function OperandEditor({
       onChange(createMarketOperand("close", timeframe));
       return;
     }
+    if (next === "derivative") {
+      onChange(createDerivativeOperand("fundingRate", timeframe));
+      return;
+    }
+    if (next === "sector") {
+      onChange(createSectorOperand());
+      return;
+    }
+    if (next === "private") {
+      onChange(createPrivateOperand("positionPnl"));
+      return;
+    }
     onChange(
       createIndicatorOperand(
         operand.kind === "INDICATOR" ? getIndicatorKind(operand) : "RSI",
@@ -123,6 +144,9 @@ function OperandEditor({
       >
         <option value="market">{pl.queryBuilder.marketField}</option>
         <option value="indicator">{pl.queryBuilder.indicator}</option>
+        <option value="derivative">Derivatives</option>
+        <option value="sector">Sector</option>
+        <option value="private">Portfolio</option>
         {allowConstant && <option value="constant">{pl.queryBuilder.constant}</option>}
       </Select>
 
@@ -200,7 +224,70 @@ function OperandEditor({
         />
       )}
 
-      {category !== "constant" && category !== "indicator" && (
+      {category === "derivative" && (
+        <div className="flex flex-wrap gap-2">
+          <Select
+            value={getDerivativeField(operand)}
+            onChange={(e) =>
+              onChange(createDerivativeOperand(e.target.value as UiDerivativeField, timeframe))
+            }
+            className="min-w-[130px] flex-1"
+          >
+            {DERIVATIVES.map((field) => (
+              <option key={field} value={field}>
+                {field}
+              </option>
+            ))}
+          </Select>
+          {operand.kind !== "FUNDING_RATE" && (
+            <Select
+              value={timeframe}
+              onChange={(e) =>
+                onChange(createDerivativeOperand(getDerivativeField(operand), e.target.value))
+              }
+              className="min-w-[72px] flex-1"
+            >
+              {TIMEFRAMES.map((tf) => (
+                <option key={tf} value={tf}>
+                  {tf}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+      )}
+
+      {category === "sector" && operand.kind === "SECTOR" && (
+        <Input
+          value={operand.tags.join(", ")}
+          onChange={(e) =>
+            onChange(
+              createSectorOperand(
+                e.target.value
+                  .split(",")
+                  .map((tag) => tag.trim())
+                  .filter(Boolean),
+              ),
+            )
+          }
+          placeholder="AI, Meme, L1"
+        />
+      )}
+
+      {category === "private" && (
+        <Select
+          value={getPrivateField(operand)}
+          onChange={(e) => onChange(createPrivateOperand(e.target.value as UiPrivateField))}
+        >
+          {PRIVATE_FIELDS.map((field) => (
+            <option key={field} value={field}>
+              {field}
+            </option>
+          ))}
+        </Select>
+      )}
+
+      {category !== "constant" && category !== "indicator" && category !== "derivative" && category !== "sector" && category !== "private" && (
         <Select
           value={timeframe}
           onChange={(e) => {

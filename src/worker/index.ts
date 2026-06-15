@@ -3,7 +3,20 @@ import { createBackfillWorker } from "../server/jobs/processors/backfill.process
 import { createScreenerEvaluateWorker } from "../server/jobs/processors/screener-evaluate.processor";
 import { createAlertDeliveryWorker } from "../server/jobs/processors/alert-delivery.processor";
 import { startWebSocketIngest, createSubscriptionSyncWorker } from "../server/jobs/processors/websocket-ingest.processor";
-import { marketSyncQueue, backfillQueue } from "../server/jobs/queues";
+import {
+  marketSyncQueue,
+  backfillQueue,
+  marketStreamConsumerQueue,
+  evaluationDispatchQueue,
+  sectorSyncQueue,
+  portfolioSyncQueue,
+} from "../server/jobs/queues";
+import { createMarketStreamConsumerWorker } from "../server/jobs/processors/market-stream-consumer.processor";
+import { createEvaluationDispatchWorker } from "../server/jobs/processors/evaluation-dispatch.processor";
+import { createSectorSyncWorker } from "../server/jobs/processors/sector-sync.processor";
+import { createHistoricalBackfillWorker } from "../server/jobs/processors/historical-backfill.processor";
+import { createBacktestRunWorker } from "../server/jobs/processors/backtest-run.processor";
+import { createPortfolioSyncWorker } from "../server/jobs/processors/portfolio-sync.processor";
 import { syncBybitMarkets } from "../server/market-data/bybit-symbols";
 import { logger } from "../lib/logger";
 import { disconnectRedis } from "../lib/redis";
@@ -15,6 +28,12 @@ const workers = [
   createScreenerEvaluateWorker(),
   createAlertDeliveryWorker(),
   createSubscriptionSyncWorker(),
+  createMarketStreamConsumerWorker(),
+  createEvaluationDispatchWorker(),
+  createSectorSyncWorker(),
+  createHistoricalBackfillWorker(),
+  createBacktestRunWorker(),
+  createPortfolioSyncWorker(),
 ];
 
 async function bootstrap(): Promise<void> {
@@ -24,6 +43,26 @@ async function bootstrap(): Promise<void> {
   await marketSyncQueue.add("sync", {}, { jobId: `boot-sync-${Date.now()}` });
 
   await startWebSocketIngest();
+  await marketStreamConsumerQueue.add(
+    "drain",
+    {},
+    { repeat: { every: 1_000 }, jobId: "market-stream-consumer-repeat" },
+  );
+  await evaluationDispatchQueue.add(
+    "drain",
+    {},
+    { repeat: { every: 1_000 }, jobId: "evaluation-dispatch-repeat" },
+  );
+  await sectorSyncQueue.add(
+    "sync",
+    {},
+    { repeat: { every: 24 * 60 * 60 * 1000 }, jobId: "sector-sync-daily" },
+  );
+  await portfolioSyncQueue.add(
+    "sync",
+    {},
+    { repeat: { every: 60_000 }, jobId: "portfolio-sync-repeat" },
+  );
 
   await backfillQueue.add("bootstrap", {
     marketType: "LINEAR",

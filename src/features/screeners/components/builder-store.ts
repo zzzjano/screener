@@ -25,6 +25,7 @@ interface BuilderState {
   setTimeframes: (timeframes: string[]) => void;
   addCondition: (groupId?: string) => void;
   addGroup: (parentId?: string) => void;
+  updateGroupOperator: (id: string, operator: "AND" | "OR") => void;
   updateCondition: (id: string, patch: Partial<Extract<RuleNode, { type: "CONDITION" }>>) => void;
   removeNode: (id: string) => void;
   toRuleTree: () => RuleTree;
@@ -97,6 +98,12 @@ export const useBuilderStore = create<BuilderState>()(
           if (node.type !== "GROUP") return node;
           return { ...node, children: [...node.children, group] };
         });
+      }),
+    updateGroupOperator: (id, operator) =>
+      set((s) => {
+        s.root = updateNode(s.root, id, (node) =>
+          node.type === "GROUP" ? { ...node, operator } : node,
+        );
       }),
     updateCondition: (id, patch) =>
       set((s) => {

@@ -6,6 +6,7 @@ const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
   ENCRYPTION_KEY: z.string().min(16).default("dev-encryption-key-change-me"),
+  API_CREDENTIAL_ENCRYPTION_KEY: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });

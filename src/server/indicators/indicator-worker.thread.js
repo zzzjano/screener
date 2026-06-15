@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { parentPort } = require("worker_threads");
 const { RSI, EMA, SMA, MACD } = require("technicalindicators");
 

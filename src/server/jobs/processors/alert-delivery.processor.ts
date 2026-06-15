@@ -1,18 +1,21 @@
 import { Worker } from "bullmq";
 import { getBullMqConnection } from "@/src/lib/bullmq";
 import { prisma } from "@/src/lib/prisma";
-import { renderAlertMessagePl } from "../../alerts/message-renderer-pl";
+import {
+  bybitTradeButtonText,
+  bybitTradeUrl,
+  renderAlertMessagePl,
+} from "../../alerts/message-renderer-pl";
 import { sendTelegramMessage } from "../../alerts/telegram-client";
-import { isCooldownActive, setCooldown } from "../../alerts/cooldown";
 import {
   createAlertDelivery,
   markDeliveryFailed,
   markDeliverySent,
-  markDeliverySkippedCooldown,
 } from "../../alerts/outbox";
 import { logger } from "@/src/lib/logger";
 
 import type { RuleEvaluationSnapshot } from "../../rules/evaluator";
+import type { MatchedConditionBadge } from "../../screeners/match-format";
 interface AlertDeliveryJob {
   alertId: string;
   screenerMatchId: string;
@@ -21,6 +24,11 @@ interface AlertDeliveryJob {
   timeframe: string;
   candle: { c: number; T: number };
   snapshots: RuleEvaluationSnapshot[];
+  matchedConditions?: MatchedConditionBadge[];
+  price?: number | null;
+  change24hPct?: number | null;
+  fundingRate?: number | null;
+  positionContext?: import("../../alerts/message-renderer-pl").AlertPositionContext | null;
 }
 
 export function createAlertDeliveryWorker(): Worker {
@@ -42,16 +50,6 @@ export function createAlertDeliveryWorker(): Worker {
         return { skipped: true };
       }
 
-      if (await isCooldownActive(alert.id, alert.cooldownSeconds)) {
-        const delivery = await createAlertDelivery(
-          alert.id,
-          job.data.screenerMatchId,
-          "Pominięto - cooldown",
-        );
-        await markDeliverySkippedCooldown(delivery.id);
-        return { skipped: true, reason: "cooldown" };
-      }
-
       const message = renderAlertMessagePl(
         {
           screenerName: job.data.screenerName,
@@ -59,6 +57,11 @@ export function createAlertDeliveryWorker(): Worker {
           timeframe: job.data.timeframe,
           candle: job.data.candle as import("../../indicators/indicator-types").Candle,
           snapshots: job.data.snapshots,
+          matchedConditions: job.data.matchedConditions,
+          price: job.data.price,
+          change24hPct: job.data.change24hPct,
+          fundingRate: job.data.fundingRate,
+          positionContext: job.data.positionContext,
         },
         alert.messageTemplate,
       );
@@ -73,9 +76,13 @@ export function createAlertDeliveryWorker(): Worker {
 
       try {
         const chatId = connection.chatIdEncrypted;
-        const messageId = await sendTelegramMessage(chatId, message);
+        const messageId = await sendTelegramMessage(chatId, message, [
+          {
+            text: bybitTradeButtonText(job.data.symbol),
+            url: bybitTradeUrl(job.data.symbol),
+          },
+        ]);
         await markDeliverySent(delivery.id, messageId);
-        await setCooldown(alert.id, alert.cooldownSeconds);
         return { sent: true };
       } catch (error) {
         const err = error instanceof Error ? error.message : String(error);

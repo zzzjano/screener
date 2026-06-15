@@ -23,6 +23,12 @@ export const operandKindSchema = z.enum([
   "MARKET_FIELD",
   "INDICATOR",
   "CONSTANT",
+  "OPEN_INTEREST",
+  "FUNDING_RATE",
+  "LIQUIDATION",
+  "SECTOR",
+  "PORTFOLIO",
+  "POSITION",
 ]);
 
 export const priceSourceSchema = z.enum([
@@ -84,6 +90,36 @@ export const operandSchema = z.discriminatedUnion("kind", [
     kind: z.literal("CONSTANT"),
     value: z.number(),
     valueMax: z.number().optional(),
+  }),
+  z.object({
+    kind: z.literal("OPEN_INTEREST"),
+    timeframe: z.string().default("15m"),
+    transform: z.enum(["CURRENT", "PERCENT_CHANGE"]).default("CURRENT"),
+    lookbackBars: z.number().int().positive().optional(),
+  }),
+  z.object({
+    kind: z.literal("FUNDING_RATE"),
+  }),
+  z.object({
+    kind: z.literal("LIQUIDATION"),
+    side: z.enum(["BUY", "SELL", "NET"]),
+    timeframe: z.string(),
+    transform: z.enum(["SUM", "PERCENT_CHANGE"]).default("SUM"),
+  }),
+  z.object({
+    kind: z.literal("SECTOR"),
+    tags: z.array(z.string()).min(1),
+    match: z.enum(["IN", "NOT_IN"]).default("IN"),
+  }),
+  z.object({
+    kind: z.literal("PORTFOLIO"),
+    field: z.enum(["TOTAL_EQUITY", "AVAILABLE_BALANCE", "MARGIN_USAGE_PCT"]),
+  }),
+  z.object({
+    kind: z.literal("POSITION"),
+    field: z.enum(["PNL_PCT", "SIDE", "HAS_ACTIVE_POSITION", "LEVERAGE", "NOTIONAL"]),
+    symbolScope: z.enum(["CURRENT_SYMBOL", "ANY"]).default("CURRENT_SYMBOL"),
+    side: z.enum(["LONG", "SHORT"]).optional(),
   }),
 ]);
 

@@ -178,4 +178,52 @@ describe("evaluateRuleTreeForScan", () => {
     expect(loadCandles).toHaveBeenCalledWith("15m");
     expect(result.snapshots.find((snapshot) => snapshot.nodeId === "close-1h")?.leftValue).toBe(200);
   });
+
+  it("evaluates private position operands through resolver", async () => {
+    const tree = validateRuleTree({
+      version: 1,
+      root: {
+        type: "GROUP",
+        id: "root",
+        operator: "AND",
+        children: [
+          {
+            type: "CONDITION",
+            id: "position-pnl",
+            left: { kind: "POSITION", field: "PNL_PCT", symbolScope: "CURRENT_SYMBOL" },
+            comparator: "LT",
+            right: { kind: "CONSTANT", value: -10 },
+          },
+        ],
+      },
+    });
+
+    const getPositionMetric = vi.fn(async () => ({ current: -12.5 }));
+    const result = await evaluateRuleTreeForScan(tree, tickerContext({ getPositionMetric }));
+    expect(result.passed).toBe(true);
+    expect(getPositionMetric).toHaveBeenCalledWith("BTCUSDT", expect.objectContaining({ kind: "POSITION" }));
+  });
+
+  it("fails private operands without private context instead of crashing", async () => {
+    const tree = validateRuleTree({
+      version: 1,
+      root: {
+        type: "GROUP",
+        id: "root",
+        operator: "AND",
+        children: [
+          {
+            type: "CONDITION",
+            id: "has-position",
+            left: { kind: "POSITION", field: "HAS_ACTIVE_POSITION", symbolScope: "CURRENT_SYMBOL" },
+            comparator: "EQ",
+            right: { kind: "CONSTANT", value: 1 },
+          },
+        ],
+      },
+    });
+
+    const result = await evaluateRuleTreeForScan(tree, tickerContext());
+    expect(result.passed).toBe(false);
+  });
 });

@@ -4,6 +4,12 @@ export {
   screenerEvaluateQueue,
   alertDeliveryQueue,
   subscriptionSyncQueue,
+  marketStreamConsumerQueue,
+  evaluationDispatchQueue,
+  sectorSyncQueue,
+  historicalBackfillQueue,
+  backtestRunQueue,
+  portfolioSyncQueue,
   emitCandleClosed,
 } from "../market-data/candle-events";
 

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "@/src/styles/tokens.css";
 import { pl } from "@/src/lib/i18n/pl";
+import { AppQueryProvider } from "@/src/lib/query-client";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,7 +27,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pl" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100">{children}</body>
+      <body className="h-full overflow-hidden bg-[#0b0e11] text-[#eaecef]">
+        <AppQueryProvider>{children}</AppQueryProvider>
+      </body>
     </html>
   );
 }

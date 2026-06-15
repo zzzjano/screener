@@ -1,9 +1,9 @@
 import WebSocket from "ws";
 import { logger } from "@/src/lib/logger";
-import { toBybitInterval } from "./timeframe";
-import { upsertCandle } from "./rolling-window-store";
-import { emitCandleClosed } from "./candle-events";
+import { fromBybitInterval, toBybitInterval } from "./timeframe";
 import type { Candle } from "../indicators/indicator-types";
+import { publishMarketEvent } from "./streams/market-events";
+import { normalizeBybitPercentRatio, toFiniteNumber } from "../derivatives/normalizers";
 
 const BYBIT_WS_URL = "wss://stream.bybit.com/v5/public/linear";
 
@@ -15,6 +15,8 @@ export interface KlineSubscription {
 export class BybitWsClient {
   private ws: WebSocket | null = null;
   private subscriptions = new Map<string, KlineSubscription>();
+  private tickerSymbols = new Set<string>();
+  private liquidationSymbols = new Set<string>();
   private reconnectAttempts = 0;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private running = false;
@@ -40,8 +42,12 @@ export class BybitWsClient {
   subscribe(symbol: string, timeframe: string): void {
     const key = `${symbol}:${timeframe}`;
     this.subscriptions.set(key, { symbol, timeframe });
+    this.tickerSymbols.add(symbol);
+    this.liquidationSymbols.add(symbol);
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.sendSubscribe([{ symbol, timeframe }]);
+      this.sendTickerSubscribe([symbol]);
+      this.sendLiquidationSubscribe([symbol]);
     }
   }
 
@@ -59,6 +65,8 @@ export class BybitWsClient {
       logger.info("Połączono z Bybit WebSocket");
       this.reconnectAttempts = 0;
       this.sendSubscribe(Array.from(this.subscriptions.values()));
+      this.sendTickerSubscribe(Array.from(this.tickerSymbols));
+      this.sendLiquidationSubscribe(Array.from(this.liquidationSymbols));
       this.heartbeatTimer = setInterval(() => {
         this.ws?.send(JSON.stringify({ op: "ping" }));
       }, 20_000);
@@ -93,6 +101,18 @@ export class BybitWsClient {
     this.ws.send(JSON.stringify({ op: "subscribe", args }));
   }
 
+  private sendTickerSubscribe(symbols: string[]): void {
+    if (symbols.length === 0 || this.ws?.readyState !== WebSocket.OPEN) return;
+    const args = symbols.map((symbol) => `tickers.${symbol}`);
+    this.ws.send(JSON.stringify({ op: "subscribe", args }));
+  }
+
+  private sendLiquidationSubscribe(symbols: string[]): void {
+    if (symbols.length === 0 || this.ws?.readyState !== WebSocket.OPEN) return;
+    const args = symbols.map((symbol) => `liquidation.${symbol}`);
+    this.ws.send(JSON.stringify({ op: "subscribe", args }));
+  }
+
   private async handleMessage(raw: string): Promise<void> {
     let msg: BybitWsMessage;
     try {
@@ -107,7 +127,22 @@ export class BybitWsClient {
       const data = msg.data;
       const rows = Array.isArray(data) ? data : data ? [data] : [];
       for (const row of rows) {
-        await this.processKline(row, topicMeta);
+        await this.processKline(row as BybitKlineRow, topicMeta);
+      }
+      return;
+    }
+
+    if (msg.topic?.startsWith("tickers.")) {
+      const data = Array.isArray(msg.data) ? msg.data[0] : msg.data;
+      if (data) await this.processTicker(data as BybitTickerRow, parseSymbolTopic(msg.topic));
+      return;
+    }
+
+    if (msg.topic?.startsWith("liquidation.")) {
+      const rows = Array.isArray(msg.data) ? msg.data : msg.data ? [msg.data] : [];
+      const symbol = parseSymbolTopic(msg.topic);
+      for (const row of rows) {
+        await this.processLiquidation(row as BybitLiquidationRow, symbol);
       }
     }
   }
@@ -130,18 +165,53 @@ export class BybitWsClient {
       closed: row.confirm === true,
     };
 
-    if (!candle.closed) return;
+    await publishMarketEvent({
+      eventType: "kline",
+      exchange: "bybit",
+      marketType: this.marketType,
+      symbol,
+      timeframe,
+      candle,
+      receivedAt: Date.now(),
+    });
+  }
 
-    const isNew = await upsertCandle(this.marketType, symbol, timeframe, candle);
-    if (isNew) {
-      await emitCandleClosed({
-        exchange: "bybit",
-        marketType: this.marketType,
-        symbol,
-        timeframe,
-        candle,
-      });
-    }
+  private async processTicker(row: BybitTickerRow, topicSymbol: string): Promise<void> {
+    const symbol = row.symbol ?? topicSymbol;
+    const price = toFiniteNumber(row.lastPrice ?? row.markPrice ?? row.indexPrice) ?? 0;
+    const openInterest = toFiniteNumber(row.openInterest);
+    await publishMarketEvent({
+      eventType: "ticker",
+      exchange: "bybit",
+      marketType: this.marketType,
+      symbol,
+      price,
+      change24hPct: normalizeBybitPercentRatio(row.price24hPcnt),
+      fundingRate: toFiniteNumber(row.fundingRate),
+      openInterest,
+      openInterestValue: openInterest !== null ? openInterest * price : null,
+      turnover24h: toFiniteNumber(row.turnover24h),
+      volume24h: toFiniteNumber(row.volume24h),
+      receivedAt: Date.now(),
+    });
+  }
+
+  private async processLiquidation(row: BybitLiquidationRow, topicSymbol: string): Promise<void> {
+    const symbol = row.symbol ?? topicSymbol;
+    const price = toFiniteNumber(row.price) ?? 0;
+    const qty = toFiniteNumber(row.qty ?? row.size) ?? 0;
+    await publishMarketEvent({
+      eventType: "liquidation",
+      exchange: "bybit",
+      marketType: this.marketType,
+      symbol,
+      side: row.side === "Buy" ? "BUY" : "SELL",
+      price,
+      qty,
+      notional: price * qty,
+      timestamp: Number(row.updatedTime ?? row.time ?? Date.now()),
+      receivedAt: Date.now(),
+    });
   }
 }
 
@@ -149,26 +219,11 @@ interface BybitWsMessage {
   op?: string;
   success?: boolean;
   topic?: string;
-  data?: BybitKlineRow | BybitKlineRow[];
+  data?: BybitKlineRow | BybitKlineRow[] | BybitTickerRow | BybitLiquidationRow | BybitLiquidationRow[];
 }
 
 function mapBybitInterval(interval: string): string {
-  const map: Record<string, string> = {
-    "1": "1m",
-    "3": "3m",
-    "5": "5m",
-    "15": "15m",
-    "30": "30m",
-    "60": "1h",
-    "120": "2h",
-    "240": "4h",
-    "360": "6h",
-    "720": "12h",
-    D: "1d",
-    W: "1w",
-    M: "1M",
-  };
-  return map[interval] ?? interval;
+  return fromBybitInterval(interval);
 }
 
 function parseKlineTopic(topic: string): { symbol: string; timeframe: string } {
@@ -177,6 +232,10 @@ function parseKlineTopic(topic: string): { symbol: string; timeframe: string } {
   const interval = parts[1] ?? "15";
   const symbol = parts[2] ?? "BTCUSDT";
   return { symbol, timeframe: mapBybitInterval(interval) };
+}
+
+function parseSymbolTopic(topic: string): string {
+  return topic.split(".")[1] ?? "BTCUSDT";
 }
 
 interface BybitKlineRow {
@@ -191,6 +250,28 @@ interface BybitKlineRow {
   confirm?: boolean;
   symbol?: string;
   interval?: string;
+}
+
+interface BybitTickerRow {
+  symbol?: string;
+  lastPrice?: string;
+  markPrice?: string;
+  indexPrice?: string;
+  price24hPcnt?: string;
+  fundingRate?: string;
+  openInterest?: string;
+  turnover24h?: string;
+  volume24h?: string;
+}
+
+interface BybitLiquidationRow {
+  symbol?: string;
+  side?: "Buy" | "Sell";
+  price?: string;
+  qty?: string;
+  size?: string;
+  updatedTime?: string;
+  time?: string;
 }
 
 function sleep(ms: number): Promise<void> {

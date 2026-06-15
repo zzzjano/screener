@@ -1,11 +1,25 @@
 import { env } from "@/src/lib/env";
 import { logger } from "@/src/lib/logger";
 
-export async function sendTelegramMessage(chatId: string, text: string): Promise<string> {
+export interface TelegramInlineButton {
+  text: string;
+  url: string;
+}
+
+export async function sendTelegramMessage(
+  chatId: string,
+  text: string,
+  buttons: TelegramInlineButton[] = [],
+): Promise<string> {
   const token = env.TELEGRAM_BOT_TOKEN;
   if (!token) {
     throw new Error("Brak TELEGRAM_BOT_TOKEN");
   }
+
+  const replyMarkup =
+    buttons.length > 0
+      ? { inline_keyboard: [buttons.map((button) => ({ text: button.text, url: button.url }))] }
+      : undefined;
 
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
@@ -15,6 +29,7 @@ export async function sendTelegramMessage(chatId: string, text: string): Promise
       text,
       parse_mode: "HTML",
       disable_web_page_preview: true,
+      reply_markup: replyMarkup,
     }),
   });
 

@@ -14,6 +14,10 @@ export interface ScanEvalContext {
   isTickerOnlyScan: boolean;
   candlesByTf: Map<string, Candle[]>;
   loadCandles: (timeframe: string) => Promise<Candle[]>;
+  getDerivativeMetric?: (operand: Extract<Operand, { kind: "OPEN_INTEREST" | "FUNDING_RATE" | "LIQUIDATION" }>) => Promise<{ current: number; previous?: number }>;
+  getSectorTags?: () => Promise<string[]>;
+  getPortfolioMetric?: (operand: Extract<Operand, { kind: "PORTFOLIO" }>) => Promise<{ current: number; previous?: number }>;
+  getPositionMetric?: (symbol: string, operand: Extract<Operand, { kind: "POSITION" }>) => Promise<{ current: number; previous?: number }>;
   indicatorEngine: IndicatorExecutionEngine;
 }
 
@@ -46,6 +50,26 @@ async function resolveOperand(operand: Operand, ctx: ScanEvalContext) {
       const candles = await ctx.loadCandles(operand.indicator.timeframe);
       return ctx.indicatorEngine.getIndicator(candles, operand.indicator);
     }
+    case "FUNDING_RATE": {
+      if (ctx.ticker?.fundingRate !== null && ctx.ticker?.fundingRate !== undefined) {
+        return { current: ctx.ticker.fundingRate };
+      }
+      return ctx.getDerivativeMetric?.(operand) ?? { current: NaN };
+    }
+    case "OPEN_INTEREST":
+    case "LIQUIDATION":
+      return ctx.getDerivativeMetric?.(operand) ?? { current: NaN };
+    case "SECTOR": {
+      const tags = await ctx.getSectorTags?.() ?? [];
+      const normalized = new Set(tags.map((tag) => tag.toLowerCase()));
+      const hasMatch = operand.tags.some((tag) => normalized.has(tag.toLowerCase()));
+      const passed = operand.match === "IN" ? hasMatch : !hasMatch;
+      return { current: passed ? 1 : 0 };
+    }
+    case "PORTFOLIO":
+      return ctx.getPortfolioMetric?.(operand) ?? { current: NaN };
+    case "POSITION":
+      return ctx.getPositionMetric?.(ctx.symbol, operand) ?? { current: NaN };
     default:
       return { current: NaN };
   }

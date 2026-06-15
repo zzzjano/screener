@@ -3,4 +3,16 @@
   --surface-2: #27272a;
   --border: #3f3f46;
   --accent: #10b981;
+  --terminal-bg: #0b0e11;
+  --terminal-panel: #11161c;
+  --terminal-panel-2: #161b22;
+  --terminal-border: #2b3139;
+  --terminal-border-soft: #1f2630;
+  --terminal-text: #eaecef;
+  --terminal-muted: #848e9c;
+  --terminal-faint: #5e6673;
+  --terminal-profit: #2ebd85;
+  --terminal-loss: #f6465d;
+  --terminal-warning: #f0b90b;
+  --terminal-info: #4da3ff;
 }

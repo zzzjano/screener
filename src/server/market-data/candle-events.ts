@@ -41,6 +41,30 @@ export const subscriptionSyncQueue = {
   add: (...args: Parameters<Queue["add"]>) => getQueue("subscription-sync").add(...args),
 };
 
+export const marketStreamConsumerQueue = {
+  add: (...args: Parameters<Queue["add"]>) => getQueue("market-stream-consumer").add(...args),
+};
+
+export const evaluationDispatchQueue = {
+  add: (...args: Parameters<Queue["add"]>) => getQueue("evaluation-dispatch").add(...args),
+};
+
+export const sectorSyncQueue = {
+  add: (...args: Parameters<Queue["add"]>) => getQueue("sector-sync").add(...args),
+};
+
+export const historicalBackfillQueue = {
+  add: (...args: Parameters<Queue["add"]>) => getQueue("historical-backfill").add(...args),
+};
+
+export const backtestRunQueue = {
+  add: (...args: Parameters<Queue["add"]>) => getQueue("backtest-run").add(...args),
+};
+
+export const portfolioSyncQueue = {
+  add: (...args: Parameters<Queue["add"]>) => getQueue("portfolio-sync").add(...args),
+};
+
 export async function emitCandleClosed(event: CandleClosedEvent): Promise<void> {
   await screenerEvaluateQueue.add(
     "candle.closed",

@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { pl } from "@/src/lib/i18n/pl";
 import { cn } from "@/src/lib/utils";
+import { TerminalTopbar } from "../terminal/terminal-topbar";
 
 const links = [
   { href: "/dashboard", label: pl.nav.dashboard },
   { href: "/screenery", label: pl.nav.screeners },
   { href: "/screenery/live", label: pl.nav.liveScreener },
+  { href: "/dashboard/positions", label: "My Positions" },
+  { href: "/ustawienia/bybit", label: "Bybit API" },
   { href: "/alerty", label: pl.nav.alerts },
   { href: "/ustawienia/telegram", label: pl.nav.telegram },
 ];
@@ -22,10 +25,10 @@ export function DashboardNav() {
           key={link.href}
           href={link.href}
           className={cn(
-            "rounded-lg px-3 py-2 text-sm transition",
+            "border border-transparent px-2 py-1.5 text-xs transition",
             pathname.startsWith(link.href)
-              ? "bg-emerald-600/20 text-emerald-300"
-              : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100",
+              ? "border-[#2b3139] bg-[#11161c] text-[#2ebd85]"
+              : "text-[#848e9c] hover:border-[#2b3139] hover:bg-[#11161c] hover:text-[#eaecef]",
           )}
         >
           {link.label}
@@ -36,14 +39,5 @@ export function DashboardNav() {
 }
 
 export function AppHeader() {
-  return (
-    <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <div>
-          <h1 className="text-lg font-semibold text-zinc-50">{pl.app.name}</h1>
-          <p className="text-xs text-zinc-500">{pl.app.tagline}</p>
-        </div>
-      </div>
-    </header>
-  );
+  return <TerminalTopbar />;
 }
