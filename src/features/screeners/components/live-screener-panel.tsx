@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import { Play, Radar } from "lucide-react";
 import { QueryBuilder } from "@/src/components/query-builder/group-node";
 import { TimeframeSelector } from "@/src/components/market/symbol-selector";
 import { Button } from "@/src/components/ui";
@@ -39,27 +40,51 @@ export function LiveScreenerPanel() {
 
   return (
     <div className="grid h-full min-h-0 gap-1 xl:grid-cols-[420px_minmax(0,1fr)_320px]">
-      <Panel className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
+      <Panel className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)_auto]">
         <PanelHeader
           title={pl.liveScreener.title}
           subtitle={pl.liveScreener.subtitle}
-          actions={
-            <Button type="button" onClick={handleScan} disabled={loading} className="h-7 px-2 text-xs">
-              {loading ? "Scanning" : "Scan"}
-            </Button>
-          }
         />
         <PanelBody className="space-y-2 border-b border-[#1f2630]">
           <TimeframeSelector />
           {error && <p className="border border-[#f6465d]/30 bg-[#f6465d]/10 px-2 py-1 text-xs text-[#f6465d]">{error}</p>}
         </PanelBody>
-        <PanelBody>
+        <PanelBody className="min-h-0 overflow-auto">
           <QueryBuilder />
         </PanelBody>
+        <div className="border-t border-[#2b3139] bg-[#11161c] p-2">
+          <Button
+            type="button"
+            onClick={handleScan}
+            disabled={loading}
+            className="h-11 w-full border border-[#2b3139] bg-[#2ebd85] text-sm font-semibold text-[#07130f] hover:bg-[#7ee7bd] disabled:opacity-60"
+          >
+            <Play className="mr-2 h-4 w-4 fill-current" />
+            {loading ? pl.liveScreener.scanning : pl.liveScreener.scanMarket}
+          </Button>
+          <p className="mt-1.5 text-center text-[10px] leading-relaxed text-[#848e9c]">
+            Ustaw warunki powyżej, potem kliknij ten przycisk, aby przeskanować cały rynek.
+          </p>
+        </div>
       </Panel>
 
       <Panel className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)]">
-        <PanelHeader title="Live Radar" subtitle={pl.liveScreener.scanHint} />
+        <PanelHeader
+          title="Live Radar"
+          subtitle={pl.liveScreener.scanHint}
+          actions={
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleScan}
+              disabled={loading}
+              className="h-8 border-[#2b3139] px-3 text-xs font-semibold"
+            >
+              <Radar className="mr-1.5 h-3.5 w-3.5" />
+              {loading ? "…" : "Skanuj"}
+            </Button>
+          }
+        />
         <div className="grid grid-cols-3 gap-1 border-b border-[#1f2630] p-1">
           <MetricTile label={pl.liveScreener.scanned} value={result?.scanned ?? "—"} />
           <MetricTile label={pl.liveScreener.matched} value={result?.matched ?? "—"} tone={(result?.matched ?? 0) > 0 ? "profit" : "neutral"} />
@@ -67,7 +92,26 @@ export function LiveScreenerPanel() {
         </div>
         {loading ? (
           <SkeletonTable rows={16} columns={8} />
-        ) : !result || result.results.length === 0 ? (
+        ) : !result ? (
+          <PanelBody className="flex flex-col items-center justify-center gap-3 text-center">
+            <div className="border border-[#2b3139] bg-[#161b22] p-4">
+              <Radar className="mx-auto h-8 w-8 text-[#f0b90b]" />
+              <p className="mt-2 text-sm font-semibold text-[#eaecef]">Gotowy do skanu</p>
+              <p className="mt-1 max-w-sm text-xs leading-relaxed text-[#848e9c]">
+                Ustaw reguły po lewej stronie, a następnie uruchom skanowanie całego rynku Bybit USDT.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={handleScan}
+              disabled={loading}
+              className="h-10 min-w-[220px] border border-[#2b3139] bg-[#2ebd85] px-6 text-sm font-semibold text-[#07130f] hover:bg-[#7ee7bd]"
+            >
+              <Play className="mr-2 h-4 w-4 fill-current" />
+              {pl.liveScreener.scanMarket}
+            </Button>
+          </PanelBody>
+        ) : result.results.length === 0 ? (
           <PanelBody>
             <p className="text-xs text-[#848e9c]">{pl.liveScreener.noResults}</p>
           </PanelBody>
