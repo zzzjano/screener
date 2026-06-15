@@ -19,18 +19,21 @@ interface BuilderState {
   symbols: string[];
   scanAll: boolean;
   timeframes: string[];
+  cooldownSeconds: number;
   root: RuleNode;
   setName: (name: string) => void;
   setDescription: (description: string) => void;
   setSymbols: (symbols: string[]) => void;
   setScanAll: (scanAll: boolean) => void;
   setTimeframes: (timeframes: string[]) => void;
+  setCooldownSeconds: (seconds: number) => void;
   loadDraft: (draft: {
     name?: string;
     description?: string | null;
     symbols?: string[];
     scanAll?: boolean;
     timeframes?: string[];
+    cooldownSeconds?: number;
     ruleTree?: RuleTree;
   }) => void;
   addCondition: (groupId?: string) => string;
@@ -85,12 +88,14 @@ export const useBuilderStore = create<BuilderState>()(
     symbols: ["BTCUSDT"],
     scanAll: false,
     timeframes: ["15m"],
+    cooldownSeconds: 900,
     root: defaultRoot(),
     setName: (name) => set((s) => { s.name = name; }),
     setDescription: (description) => set((s) => { s.description = description; }),
     setSymbols: (symbols) => set((s) => { s.symbols = symbols; }),
     setScanAll: (scanAll) => set((s) => { s.scanAll = scanAll; }),
     setTimeframes: (timeframes) => set((s) => { s.timeframes = timeframes; }),
+    setCooldownSeconds: (seconds) => set((s) => { s.cooldownSeconds = seconds; }),
     loadDraft: (draft) =>
       set((s) => {
         if (draft.name !== undefined) s.name = draft.name;
@@ -98,6 +103,7 @@ export const useBuilderStore = create<BuilderState>()(
         if (draft.symbols) s.symbols = draft.symbols;
         if (draft.scanAll !== undefined) s.scanAll = draft.scanAll;
         if (draft.timeframes) s.timeframes = draft.timeframes;
+        if (draft.cooldownSeconds !== undefined) s.cooldownSeconds = draft.cooldownSeconds;
         if (draft.ruleTree) s.root = draft.ruleTree.root;
       }),
     addCondition: (groupId = "root") => {

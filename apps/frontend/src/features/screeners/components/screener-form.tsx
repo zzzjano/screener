@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { QueryBuilder } from "@/src/components/query-builder/group-node";
 import { SymbolSelector, TimeframeSelector } from "@/src/components/market/symbol-selector";
-import { Button, Input } from "@/src/components/ui";
+import { Button, Input, Select } from "@/src/components/ui";
 import { pl } from "@/src/lib/i18n/pl";
 import { useBuilderStore } from "@/src/features/screeners/components/builder-store";
 import { createScreener, updateScreener } from "@/src/features/screeners/actions";
@@ -20,6 +20,7 @@ interface ScreenerFormProps {
     symbols: string[];
     scanAll?: boolean;
     timeframes: string[];
+    cooldownSeconds?: number;
     ruleTree: RuleTree;
   };
 }
@@ -34,9 +35,11 @@ export function ScreenerForm({ mode = "create", screenerId, initialDraft }: Scre
   const symbols = useBuilderStore((s) => s.symbols);
   const scanAll = useBuilderStore((s) => s.scanAll);
   const timeframes = useBuilderStore((s) => s.timeframes);
+  const cooldownSeconds = useBuilderStore((s) => s.cooldownSeconds);
   const setName = useBuilderStore((s) => s.setName);
   const setDescription = useBuilderStore((s) => s.setDescription);
   const setScanAll = useBuilderStore((s) => s.setScanAll);
+  const setCooldownSeconds = useBuilderStore((s) => s.setCooldownSeconds);
   const loadDraft = useBuilderStore((s) => s.loadDraft);
   const toRuleTree = useBuilderStore((s) => s.toRuleTree);
 
@@ -57,6 +60,7 @@ export function ScreenerForm({ mode = "create", screenerId, initialDraft }: Scre
         symbols,
         scanAll,
         timeframes,
+        cooldownSeconds,
         ruleTree: toRuleTree(),
       };
       const screener = mode === "edit" && screenerId
@@ -98,6 +102,19 @@ export function ScreenerForm({ mode = "create", screenerId, initialDraft }: Scre
         )}
         {!scanAll && <SymbolSelector />}
         <TimeframeSelector />
+        <div className="space-y-1 pt-1">
+          <label className="text-xs text-[#848e9c]">Cooldown alertu (dla symbolu)</label>
+          <Select
+            value={cooldownSeconds.toString()}
+            onChange={(e) => setCooldownSeconds(parseInt(e.target.value, 10))}
+          >
+            <option value="0">Brak cooldownu</option>
+            <option value="900">15 minut</option>
+            <option value="3600">1 godzina</option>
+            <option value="14400">4 godziny</option>
+            <option value="86400">24 godziny</option>
+          </Select>
+        </div>
           {error && <p className="border border-[#f6465d]/30 bg-[#f6465d]/10 px-2 py-1 text-xs text-[#f6465d]">{error}</p>}
           <Button type="submit" disabled={loading || !name} className="w-full">
             {loading ? pl.common.loading : mode === "edit" ? "Save changes" : "Create screener"}

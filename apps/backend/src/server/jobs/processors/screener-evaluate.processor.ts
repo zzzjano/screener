@@ -151,8 +151,10 @@ export function createScreenerEvaluateWorker(): Worker {
               continue;
             }
 
-            await alertDeliveryQueue.add("deliver", {
+            const alertData = {
               alertId: alert.id,
+              screenerId: screener.id,
+              cooldownSeconds: alert.cooldownSeconds,
               screenerMatchId: match.id,
               screenerName: screener.name,
               symbol,
@@ -173,6 +175,17 @@ export function createScreenerEvaluateWorker(): Worker {
                     liquidationPrice: position.liquidationPrice,
                   }
                 : null,
+            };
+
+            const redis = getRedis();
+            await redis.rpush(`pending_alerts:${alert.id}`, JSON.stringify(alertData));
+            await redis.expire(`pending_alerts:${alert.id}`, 60);
+
+            await alertDeliveryQueue.add("deliver_batch", {
+              alertId: alert.id,
+            }, {
+              jobId: `deliver_batch-${alert.id}-${candle.T}`,
+              delay: 5000,
             });
           }
         }
@@ -312,26 +325,7 @@ async function isAlertSymbolCooldownActive(
 ): Promise<boolean> {
   if (cooldownSeconds <= 0) return false;
 
-  const since = new Date(Date.now() - cooldownSeconds * 1000);
-  const recentMatches = await prisma.screenerMatch.findMany({
-    where: {
-      screenerId,
-      symbol,
-      createdAt: { gte: since },
-    },
-    select: { id: true },
-  });
-  if (recentMatches.length === 0) return false;
-
-  const recentDelivery = await prisma.alertDelivery.findFirst({
-    where: {
-      alertId,
-      status: AlertDeliveryStatus.SENT,
-      sentAt: { gte: since },
-      screenerMatchId: { in: recentMatches.map((match) => match.id) },
-    },
-    select: { id: true },
-  });
-
-  return recentDelivery !== null;
+  const redis = getRedis();
+  const exists = await redis.exists(`cooldown:${screenerId}:${symbol}`);
+  return exists === 1;
 }

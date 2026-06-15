@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
     "ws",
     "worker_threads",
   ],
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["92.5.63.11:3011", "localhost:3000"],
+    },
+  },
 };
 
 export default nextConfig;

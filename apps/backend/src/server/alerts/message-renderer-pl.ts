@@ -77,6 +77,33 @@ export function renderAlertMessagePl(input: AlertMessageInput, template?: string
     .replace("{candleCloseTimeEuropeWarsaw}", formatWarsawDate(new Date(input.candle.T)));
 }
 
+export function renderBulkAlertMessagePl(inputs: AlertMessageInput[]): string {
+  if (inputs.length === 1) {
+    return renderAlertMessagePl(inputs[0]);
+  }
+
+  const screenerName = inputs[0].screenerName;
+  const timeframe = inputs[0].timeframe;
+
+  let header = `<b>🚀 Screener: ${escapeHtml(screenerName)} wyłapał ${inputs.length} nowych rynków (${escapeHtml(timeframe)})</b>\n\n`;
+
+  const lines = inputs.map(input => {
+    const price = input.price ?? input.candle.c;
+    const matchedConditions = input.matchedConditions && input.matchedConditions.length > 0
+      ? input.matchedConditions
+      : input.snapshots.filter(s => s.passed).map(s => ({ label: s.explanationPl }));
+    const summary = matchedConditions.map(c => c.label).join("; ");
+    return `• <code>${escapeHtml(input.symbol)}</code> — cena: <b>${formatNumber(price)}</b> (${formatSignedPercent(input.change24hPct)})\n  └ <i>${escapeHtml(summary)}</i>`;
+  });
+
+  if (lines.length > 30) {
+    const hidden = lines.length - 30;
+    return header + lines.slice(0, 30).join("\n") + `\n\n...oraz ${hidden} innych rynków (ukryte).`;
+  }
+
+  return header + lines.join("\n");
+}
+
 export function bybitTradeUrl(symbol: string): string {
   const slug = symbol.split(":")[0].replace("/", "").toUpperCase();
   return `https://www.bybit.com/trade/usdt/${slug}`;

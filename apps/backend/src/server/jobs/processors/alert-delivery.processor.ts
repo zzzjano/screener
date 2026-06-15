@@ -1,10 +1,13 @@
 import { Worker } from "bullmq";
 import { getBullMqConnection } from "../../../lib/bullmq";
+import { getRedis } from "../../../lib/redis";
 import { prisma } from "../../../lib/prisma";
 import {
   bybitTradeButtonText,
   bybitTradeUrl,
   renderAlertMessagePl,
+  renderBulkAlertMessagePl,
+  type AlertMessageInput,
 } from "../../alerts/message-renderer-pl";
 import { sendTelegramMessage } from "../../alerts/telegram-client";
 import {
@@ -18,6 +21,8 @@ import type { RuleEvaluationSnapshot } from "../../rules/evaluator";
 import type { MatchedConditionBadge } from "../../screeners/match-format";
 interface AlertDeliveryJob {
   alertId: string;
+  screenerId?: string;
+  cooldownSeconds?: number;
   screenerMatchId: string;
   screenerName: string;
   symbol: string;
@@ -32,9 +37,89 @@ interface AlertDeliveryJob {
 }
 
 export function createAlertDeliveryWorker(): Worker {
-  return new Worker<AlertDeliveryJob>(
+  return new Worker<any>(
     "alert-delivery",
     async (job) => {
+      const redis = getRedis();
+      
+      if (job.name === "deliver_batch") {
+        const alertId = job.data.alertId;
+        const items = await redis.lrange(`pending_alerts:${alertId}`, 0, -1);
+        if (items.length === 0) return { skipped: true, reason: "empty_batch" };
+        await redis.del(`pending_alerts:${alertId}`);
+
+        const parsedItems: AlertDeliveryJob[] = items.map(i => JSON.parse(i));
+        
+        const alert = await prisma.alert.findUnique({
+          where: { id: alertId },
+          include: {
+            screener: {
+              include: {
+                user: { include: { telegramConnections: { where: { isEnabled: true } } } },
+              },
+            },
+          },
+        });
+
+        if (!alert || !alert.isEnabled || !alert.telegramEnabled) {
+          return { skipped: true };
+        }
+
+        const connection = alert.screener.user.telegramConnections[0];
+        if (!connection) {
+          return { skipped: true, reason: "no_telegram" };
+        }
+
+        const messageInputs: AlertMessageInput[] = parsedItems.map(item => ({
+          screenerName: item.screenerName,
+          symbol: item.symbol,
+          timeframe: item.timeframe,
+          candle: item.candle as import("../../indicators/indicator-types").Candle,
+          snapshots: item.snapshots,
+          matchedConditions: item.matchedConditions,
+          price: item.price,
+          change24hPct: item.change24hPct,
+          fundingRate: item.fundingRate,
+          positionContext: item.positionContext,
+        }));
+
+        const message = renderBulkAlertMessagePl(messageInputs);
+
+        try {
+          const chatId = connection.chatIdEncrypted;
+          const buttons = parsedItems.length === 1 ? [
+            {
+              text: bybitTradeButtonText(parsedItems[0].symbol),
+              url: bybitTradeUrl(parsedItems[0].symbol),
+            }
+          ] : undefined;
+
+          const messageId = await sendTelegramMessage(chatId, message, buttons);
+
+          for (const item of parsedItems) {
+            const delivery = await createAlertDelivery(alert.id, item.screenerMatchId, message);
+            await markDeliverySent(delivery.id, messageId);
+
+            if (item.screenerId && item.cooldownSeconds && item.cooldownSeconds > 0) {
+              await redis.set(
+                `cooldown:${item.screenerId}:${item.symbol}`,
+                "1",
+                "EX",
+                item.cooldownSeconds
+              );
+            }
+          }
+
+          logger.info("Wysłano powiadomienie grupowe", { count: parsedItems.length, alertId });
+          return { sent: true, count: parsedItems.length };
+        } catch (error) {
+          const err = error instanceof Error ? error.message : String(error);
+          logger.error("Błąd grupowej wysyłki Telegram", { error: err });
+          throw error;
+        }
+      }
+
+      // Legacy single delivery fallback
       const alert = await prisma.alert.findUnique({
         where: { id: job.data.alertId },
         include: {
@@ -46,9 +131,7 @@ export function createAlertDeliveryWorker(): Worker {
         },
       });
 
-      if (!alert || !alert.isEnabled || !alert.telegramEnabled) {
-        return { skipped: true };
-      }
+      if (!alert || !alert.isEnabled || !alert.telegramEnabled) return { skipped: true };
 
       const message = renderAlertMessagePl(
         {
@@ -83,6 +166,16 @@ export function createAlertDeliveryWorker(): Worker {
           },
         ]);
         await markDeliverySent(delivery.id, messageId);
+
+        if (job.data.screenerId && job.data.cooldownSeconds && job.data.cooldownSeconds > 0) {
+          await redis.set(
+            `cooldown:${job.data.screenerId}:${job.data.symbol}`,
+            "1",
+            "EX",
+            job.data.cooldownSeconds
+          );
+        }
+
         return { sent: true };
       } catch (error) {
         const err = error instanceof Error ? error.message : String(error);

@@ -41,7 +41,8 @@ const screenersRoutes: FastifyPluginAsync = async (fastify) => {
         compiledDependencies: deps as unknown as Prisma.InputJsonValue,
         marketType: input.marketType ?? MarketType.LINEAR,
         quoteAsset: input.quoteAsset ?? "USDT",
-        alerts: { create: { isEnabled: true, telegramEnabled: true } },
+        cooldownSeconds: input.cooldownSeconds ?? 900,
+        alerts: { create: { isEnabled: true, telegramEnabled: true, cooldownSeconds: input.cooldownSeconds ?? 900 } },
       },
     });
 
@@ -80,8 +81,16 @@ const screenersRoutes: FastifyPluginAsync = async (fastify) => {
         ruleTree: tree ? (tree as unknown as Prisma.InputJsonValue) : undefined,
         ruleTreeHash: tree ? hashRuleTree(tree) : undefined,
         compiledDependencies: deps ? (deps as unknown as Prisma.InputJsonValue) : undefined,
+        cooldownSeconds: input.cooldownSeconds,
       },
     });
+
+    if (input.cooldownSeconds !== undefined) {
+      await prisma.alert.updateMany({
+        where: { screenerId: id },
+        data: { cooldownSeconds: input.cooldownSeconds },
+      });
+    }
 
     return reply.send(screener);
   });
