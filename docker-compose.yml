@@ -30,28 +30,26 @@ services:
   migrate:
     build:
       context: .
-      dockerfile: docker/Dockerfile.worker
+      dockerfile: docker/Dockerfile.monorepo
     env_file:
       - .env
     environment:
       NODE_ENV: production
-    command: ["./docker/migrate.sh"]
+    command: ["npx", "prisma", "migrate", "deploy", "--schema=packages/database/prisma/schema.prisma"]
     depends_on:
       postgres:
         condition: service_healthy
     restart: "no"
 
-  web:
+  backend:
     build:
       context: .
-      dockerfile: docker/Dockerfile
-    init: true
-    ports:
-      - "${WEB_PORT:-3011}:3000"
+      dockerfile: docker/Dockerfile.monorepo
     env_file:
       - .env
     environment:
       NODE_ENV: production
+    command: ["npm", "run", "start", "-w", "@screener/backend"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,22 +58,30 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  worker:
+  frontend:
     build:
       context: .
-      dockerfile: docker/Dockerfile.worker
-    init: true
+      dockerfile: docker/Dockerfile.monorepo
     env_file:
       - .env
     environment:
       NODE_ENV: production
+      # Nginx proxies /api/ calls here
+      NEXT_PUBLIC_API_URL: /api
+    command: ["npm", "run", "start", "-w", "@screener/frontend"]
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
+      backend:
+        condition: service_started
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "3011:3011"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
 
 volumes:
   postgres_data:

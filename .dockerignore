@@ -1,8 +1,14 @@
 .git
+.turbo
+**/.turbo
 .next
+**/.next
 node_modules
+**/node_modules
 coverage
+**/coverage
 dist
+**/dist
 
 .env
 .env.*
@@ -15,3 +21,4 @@ pnpm-debug.log*
 
 Dockerfile
 docker-compose*.yml
+nginx.conf

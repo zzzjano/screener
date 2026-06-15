@@ -1,0 +1,17 @@
+FROM node:20-alpine
+
+WORKDIR /app
+RUN apk add --no-cache openssl
+
+# Kopiowanie plików projektowych
+COPY package.json package-lock.json turbo.json ./
+COPY apps ./apps
+COPY packages ./packages
+
+# Instalacja zależności
+RUN npm ci
+
+# Uruchomienie buildu Turborepo (zbuduje frontend, backend i wygeneruje Prisma)
+RUN npx turbo run build
+
+ENV NODE_ENV=production
