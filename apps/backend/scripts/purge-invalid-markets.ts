@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { backfillQueue } from "../src/server/jobs/queues";
+import { Queue } from "bullmq";
+import { getBullMqConnection } from "../src/lib/bullmq";
 import { getRedis } from "../src/lib/redis";
 
 const prisma = new PrismaClient();
@@ -19,6 +20,7 @@ async function run() {
 
   // 2. Twarde wyczyszczenie kolejki zadań Backfill
   console.log("Czyszczenie kolejki backfillQueue (BullMQ)...");
+  const backfillQueue = new Queue("backfill", { connection: getBullMqConnection() });
   await backfillQueue.obliterate({ force: true });
   console.log("Kolejka backfill wyczyszczona.");
 
