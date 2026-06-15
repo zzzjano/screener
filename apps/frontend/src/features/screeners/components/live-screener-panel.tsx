@@ -58,7 +58,7 @@ export function LiveScreenerPanel() {
   }
 
   return (
-    <div className="grid h-full min-h-0 gap-1 xl:grid-cols-[420px_minmax(0,1fr)_320px]">
+    <div className="grid h-full min-h-0 gap-1 xl:grid-cols-[480px_minmax(0,1fr)_320px]">
       <Panel className="grid min-h-0 min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto]">
         <PanelHeader
           title={pl.liveScreener.title}
