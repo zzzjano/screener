@@ -8,53 +8,29 @@ import crypto from "crypto";
 // Import the existing worker bootstrap logic
 import "./worker/index";
 
+import portfolioRoutes from "./api/portfolio";
+import settingsRoutes from "./api/settings";
+import backtestsRoutes from "./api/backtests";
+import screenersRoutes from "./api/screeners";
+import alertsRoutes from "./api/alerts";
+import marketDataRoutes from "./api/market-data";
+import telegramRoutes from "./api/telegram";
+import healthRoutes from "./api/health";
+
 const server = fastify({ logger: true });
 
 server.register(cors, {
   origin: "*", // Adjust in production
 });
 
-server.post("/screeners/live", async (request, reply) => {
-  const startedAt = Date.now();
-  try {
-    const body = request.body as { ruleTree?: unknown };
-    if (!body?.ruleTree) {
-      return reply.status(400).send({ error: "Brak ruleTree" });
-    }
-
-    logger.info("POST /screeners/live - żądanie przyjęte");
-
-    const jobId = crypto.randomUUID();
-    await liveScanQueue.add("run", { ruleTree: body.ruleTree }, { jobId });
-
-    return reply.status(202).send({ jobId });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Błąd skanowania";
-    logger.error("POST /screeners/live - błąd", { message });
-    return reply.status(500).send({ error: message });
-  }
-});
-
-server.get("/screeners/live/:jobId", async (request, reply) => {
-  const { jobId } = request.params as { jobId: string };
-  try {
-    const job = await liveScanQueue.getJob(jobId);
-    if (!job) {
-      return reply.status(404).send({ error: "Job not found" });
-    }
-
-    const state = await job.getState();
-    if (state === "completed") {
-      return reply.send({ status: "completed", results: job.returnvalue });
-    } else if (state === "failed") {
-      return reply.send({ status: "failed", error: job.failedReason });
-    } else {
-      return reply.send({ status: state });
-    }
-  } catch (error) {
-    return reply.status(500).send({ error: "Błąd pobierania zadania" });
-  }
-});
+server.register(portfolioRoutes, { prefix: "/portfolio" });
+server.register(settingsRoutes, { prefix: "/settings" });
+server.register(backtestsRoutes, { prefix: "/backtests" });
+server.register(screenersRoutes, { prefix: "/screeners" });
+server.register(alertsRoutes, { prefix: "/alerts" });
+server.register(marketDataRoutes, { prefix: "/market-data" });
+server.register(telegramRoutes, { prefix: "/telegram" });
+server.register(healthRoutes, { prefix: "/health" });
 
 const start = async () => {
   try {
