@@ -46,7 +46,9 @@ export function compileDependencies(
   symbols: string[],
   screenerTimeframes: string[] = [],
 ): ScreenerDependency {
-  const timeframes = new Set<string>(screenerTimeframes);
+  const timeframes = new Set<string>(
+    screenerTimeframes.filter((tf) => VALID_TIMEFRAMES.includes(tf as any))
+  );
   const indicators = new Map<string, IndicatorConfigAst>();
   walkNode(tree.root, timeframes, indicators);
 
