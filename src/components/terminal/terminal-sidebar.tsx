@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   Bell,
+  KeyRound,
   FlaskConical,
   LayoutDashboard,
   LineChart,
@@ -23,8 +24,9 @@ const primaryLinks = [
 ];
 
 const secondaryLinks = [
+  { href: "/ustawienia/bybit", label: "Bybit API", icon: KeyRound },
   { href: "/alerty", label: "Alerts", icon: Bell },
-  { href: "/ustawienia/telegram", label: "Settings", icon: Settings },
+  { href: "/ustawienia/telegram", label: "Telegram Settings", icon: Settings },
 ];
 
 export function TerminalSidebar() {

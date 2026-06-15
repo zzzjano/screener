@@ -23,7 +23,14 @@ interface BuilderState {
   setDescription: (description: string) => void;
   setSymbols: (symbols: string[]) => void;
   setTimeframes: (timeframes: string[]) => void;
-  addCondition: (groupId?: string) => void;
+  loadDraft: (draft: {
+    name?: string;
+    description?: string | null;
+    symbols?: string[];
+    timeframes?: string[];
+    ruleTree?: RuleTree;
+  }) => void;
+  addCondition: (groupId?: string) => string;
   addGroup: (parentId?: string) => void;
   updateGroupOperator: (id: string, operator: "AND" | "OR") => void;
   updateCondition: (id: string, patch: Partial<Extract<RuleNode, { type: "CONDITION" }>>) => void;
@@ -79,13 +86,24 @@ export const useBuilderStore = create<BuilderState>()(
     setDescription: (description) => set((s) => { s.description = description; }),
     setSymbols: (symbols) => set((s) => { s.symbols = symbols; }),
     setTimeframes: (timeframes) => set((s) => { s.timeframes = timeframes; }),
-    addCondition: (groupId = "root") =>
+    loadDraft: (draft) =>
+      set((s) => {
+        if (draft.name !== undefined) s.name = draft.name;
+        if (draft.description !== undefined) s.description = draft.description ?? "";
+        if (draft.symbols) s.symbols = draft.symbols;
+        if (draft.timeframes) s.timeframes = draft.timeframes;
+        if (draft.ruleTree) s.root = draft.ruleTree.root;
+      }),
+    addCondition: (groupId = "root") => {
+      const condition = defaultCondition();
       set((s) => {
         s.root = updateNode(s.root, groupId, (node) => {
           if (node.type !== "GROUP") return node;
-          return { ...node, children: [...node.children, defaultCondition()] };
+          return { ...node, children: [...node.children, condition] };
         });
-      }),
+      });
+      return condition.id;
+    },
     addGroup: (parentId = "root") =>
       set((s) => {
         const group: Extract<RuleNode, { type: "GROUP" }> = {

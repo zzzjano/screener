@@ -18,7 +18,7 @@ export function CompactRuleBuilder() {
       <div className="flex items-center justify-between">
         <div>
           <div className="text-[10px] uppercase tracking-wide text-[#848e9c]">AST Rule Builder</div>
-          <div className="text-xs text-[#eaecef]">Compact filters, drawer-based advanced edits</div>
+          <div className="text-xs text-[#eaecef]">Click any condition row to edit. Add condition opens the editor automatically.</div>
         </div>
         <Button type="button" variant="ghost" className="h-7 px-2 text-[10px]" onClick={() => setDebugOpen(true)}>
           <Code2 className="mr-1 h-3.5 w-3.5" />
