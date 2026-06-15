@@ -35,6 +35,7 @@ const screenersRoutes: FastifyPluginAsync = async (fastify) => {
         name: input.name,
         description: input.description,
         symbols: input.symbols,
+        scanAll: input.scanAll,
         timeframes: input.timeframes,
         ruleTree: tree as unknown as Prisma.InputJsonValue,
         ruleTreeHash: hashRuleTree(tree),
@@ -77,6 +78,7 @@ const screenersRoutes: FastifyPluginAsync = async (fastify) => {
         name: input.name,
         description: input.description,
         symbols: input.symbols,
+        scanAll: input.scanAll,
         timeframes: input.timeframes,
         ruleTree: tree ? (tree as unknown as Prisma.InputJsonValue) : undefined,
         ruleTreeHash: tree ? hashRuleTree(tree) : undefined,
@@ -102,20 +104,29 @@ const screenersRoutes: FastifyPluginAsync = async (fastify) => {
       data: { status: ScreenerStatus.ACTIVE },
     });
 
+    let symbolsToScan = screener.symbols;
+    if (screener.scanAll) {
+      const allMarkets = await prisma.market.findMany({
+        where: { type: screener.marketType, isActive: true },
+        select: { symbol: true },
+      });
+      symbolsToScan = allMarkets.map((m) => m.symbol);
+    }
+
     const deps = compileDependencies(
       validateRuleTree(screener.ruleTree as RuleTree),
-      screener.symbols,
+      symbolsToScan,
       screener.timeframes,
     );
 
     await registerScreenerDependencies(
       screener.id,
       screener.marketType,
-      screener.symbols,
+      symbolsToScan,
       deps.timeframes,
     );
 
-    for (const symbol of screener.symbols) {
+    for (const symbol of symbolsToScan) {
       for (const timeframe of deps.timeframes) {
         await backfillQueue.add("activate", {
           marketType: screener.marketType,
