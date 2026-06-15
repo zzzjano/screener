@@ -16,6 +16,7 @@ import alertsRoutes from "./api/alerts";
 import marketDataRoutes from "./api/market-data";
 import telegramRoutes from "./api/telegram";
 import healthRoutes from "./api/health";
+import livePresetsRoutes from "./api/live-presets";
 
 const server = fastify({ logger: true });
 
@@ -31,6 +32,9 @@ server.register(alertsRoutes, { prefix: "/alerts" });
 server.register(marketDataRoutes, { prefix: "/market-data" });
 server.register(telegramRoutes, { prefix: "/telegram" });
 server.register(healthRoutes, { prefix: "/health" });
+server.register(livePresetsRoutes, { prefix: "/live-presets" });
+
+
 
 const start = async () => {
   try {
